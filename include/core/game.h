@@ -18,7 +18,8 @@ class AuctionManager;  // forward
 class GameCLI;         // forward
 
 // UI callbacks buat CLI
-struct GameCallbacks {
+class GameCallbacks {
+public:
     function<bool(Property&)>              onOfferPurchase; //Prompt player mau beli apa engga, true = iya, false = ga
     function<void(Player&)>                onTaxPPH; // Prompt player milih bayar pake apa
     function<void(Player&)>                onFestival; // Prompt player milih properti buat festival

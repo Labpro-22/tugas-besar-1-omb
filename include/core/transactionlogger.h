@@ -4,7 +4,8 @@
 
 namespace Nimonspoli {
 
-struct LogEntry {
+class LogEntry {
+public:
     int         turn;
     std::string username;
     std::string action;   // "DADU", "BELI", "SEWA", "KARTU" …
