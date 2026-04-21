@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "core/Game.h"
+#include "core/game.h"
 using namespace std;
 namespace Nimonspoli {
 

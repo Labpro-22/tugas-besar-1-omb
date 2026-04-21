@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "core/Config.h"
-#include "core/PropertyTypes.h"
+#include "core/config.h"
+#include "core/propertytypes.h"
 using namespace std;
 namespace Nimonspoli {
 

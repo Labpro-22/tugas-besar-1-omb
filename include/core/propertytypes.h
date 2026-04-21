@@ -1,7 +1,7 @@
 #pragma once
 #include "core/property.h"
 #include "core/festivaleffect.h"
-#include "core/Config.h"
+#include "core/config.h"
 #include <array>
 #include <stdexcept>
  

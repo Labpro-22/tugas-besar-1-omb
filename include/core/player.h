@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
-#include "core/Types.h"
+#include "core/types.h"
 using namespace std;
 
 namespace Nimonspoli {

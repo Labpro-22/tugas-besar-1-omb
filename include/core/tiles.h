@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "core/Types.h"
+#include "core/types.h"
 
 namespace Nimonspoli {
 

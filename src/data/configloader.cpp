@@ -1,4 +1,4 @@
-#include "data/configLoader.h"
+#include "data/configloader.h"
 #include "core/board.h"
 #include "core/tiles.h"
 #include <fstream>

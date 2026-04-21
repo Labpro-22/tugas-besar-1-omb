@@ -1,6 +1,6 @@
-#include "core/Player.h"
-#include "core/Property.h"
-#include "core/PropertyTypes.h"
+#include "core/player.h"
+#include "core/property.h"
+#include "core/propertytypes.h"
 
 namespace Nimonspoli {
 

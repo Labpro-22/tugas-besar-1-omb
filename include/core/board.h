@@ -3,9 +3,9 @@
 #include <map>
 #include <string>
 #include <memory>
-#include "core/Tiles.h"
-#include "core/Property.h"
-#include "core/PropertyTypes.h"
+#include "core/tiles.h"
+#include "core/property.h"
+#include "core/propertytypes.h"
 using namespace std;
 namespace Nimonspoli {
 

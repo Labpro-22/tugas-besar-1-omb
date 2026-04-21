@@ -1,8 +1,8 @@
-#include "core/Cards.h"
-#include "core/Game.h"
-#include "core/Player.h"
-#include "core/Board.h"
-#include "core/PropertyTypes.h"
+#include "core/cards.h"
+#include "core/game.h"
+#include "core/player.h"
+#include "core/board.h"
+#include "core/propertytypes.h"
 #include <stdexcept>
 #include <iostream>
 

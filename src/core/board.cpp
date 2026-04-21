@@ -1,5 +1,5 @@
-#include "core/Board.h"
-#include "core/Player.h"
+#include "core/board.h"
+#include "core/player.h"
 #include <stdexcept>
 #include <algorithm>
 using namespace std;
