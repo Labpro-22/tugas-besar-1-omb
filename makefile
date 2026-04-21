@@ -1,4 +1,4 @@
-# Makefile for C++ OOP Project (Optimized & Recursive)
+# Makefile for Nimonspoli — IF2010 Tugas Besar 1
 
 # Compiler settings
 CXX      := g++
@@ -13,29 +13,37 @@ DATA_DIR    := data
 CONFIG_DIR  := config
 
 # Target executable
-TARGET := $(BIN_DIR)/game
+TARGET := $(BIN_DIR)/nimonspoli
 
-# 1. Recursive Source Finding
-# Secara otomatis mencari semua file .cpp di dalam src/ dan semua sub-foldernya
+# Recursive source finding — automatically discovers all .cpp in src/
 SRCS := $(shell find $(SRC_DIR) -name '*.cpp')
 
-# 2. Dynamic Object Mapping
-# Mengubah path src/xxx/yyy.cpp menjadi build/xxx/yyy.o
+# Map src/xxx/yyy.cpp → build/xxx/yyy.o
 OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRCS))
 
-# Main targets
+# =============================================================================
+# Targets
+# =============================================================================
+
+.PHONY: all clean rebuild run directories
+
 all: directories $(TARGET)
 
-# Create necessary root directories
+# Create output directories
 directories:
 	@mkdir -p $(OBJ_DIR) $(BIN_DIR) $(DATA_DIR) $(CONFIG_DIR)
 
-# Link object files to create executable
+# Link object files into executable
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
-	@echo "Build successful! Executable is at $(TARGET)"
+	@echo ""
+	@echo "========================================="
+	@echo "  Build successful!"
+	@echo "  Executable: $(TARGET)"
+	@echo "========================================="
+	@echo ""
 
-# Compile source files into object files
+# Compile each .cpp to .o (auto-creates subdirectories)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -44,12 +52,10 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 run: all
 	./$(TARGET)
 
-# Clean up generated files
+# Clean build artifacts
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
-	@echo "Cleaned up $(OBJ_DIR) and $(BIN_DIR)"
+	@echo "Cleaned $(OBJ_DIR)/ and $(BIN_DIR)/"
 
-# Rebuild everything from scratch
+# Full rebuild
 rebuild: clean all
-
-.PHONY: all clean rebuild run directories
