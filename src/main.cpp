@@ -2,8 +2,7 @@
 #include <stdexcept>
 #include "data/configloader.h"
 #include "core/game.h"
-#include "ui/gameCLI.h"
-
+#include "ui/gameCLI.h" 
 using namespace Nimonspoli;
 
 int main() {
@@ -26,7 +25,7 @@ int main() {
         cli.run();
 
     } catch (const exception& e) {
-        cerr << "[FATAL] " << e.what() << "\n";
+        std::cerr << "[FATAL] " << e.what() << "\n";
         return 1;
     }
 
