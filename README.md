@@ -1,8 +1,4 @@
-# Nimonspoli 🎲
-
-> Permainan papan strategi monopoli berbasis CLI, dibangun dengan C++ dan prinsip Object-Oriented Programming.
-
-**IF2010 Pemrograman Berorientasi Objek — Tugas Besar 1**
+# Nimonspoli  **IF2010 Pemrograman Berorientasi Objek — Tugas Besar 1**
 
 ---
 
