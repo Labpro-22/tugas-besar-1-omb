@@ -227,6 +227,7 @@ void Game::handlePropertyPurchase(Player& player, Property& prop) {
         logger_.log(currentTurn_, player.username(), prop.type() == PropertyType::RAILROAD ? "RAILROAD" : "UTILITY", prop.name() + " kini milik " + player.username() + " (otomatis)");
         return;
     }
+    
     bool wantsBuy = player.canAfford(prop.buyPrice()) && cb_.onOfferPurchase && cb_.onOfferPurchase(prop);
     if (!wantsBuy) { handleAuction(prop); return; }
     int price = prop.buyPrice();
