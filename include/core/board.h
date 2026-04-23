@@ -42,6 +42,13 @@ public:
 
     void tickFestivals(Player* player);
 
+    vector<Player*> auctionOrder(Player* trigger, const vector<Player*>& activePlayers) const;
+
+    int auctionPassesNeeded(const vector<Player*>& auctionParticipants) const;
+    int findTileIndex(TileType type) const;
+    
+    string tileDescription(int index) const;
+
 private:
     vector<unique_ptr<Tile>>            tiles_;
     map<string, unique_ptr<Property>>   properties_;
