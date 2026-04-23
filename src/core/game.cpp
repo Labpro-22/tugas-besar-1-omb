@@ -219,38 +219,11 @@ void Game::processLanding(Player& player, int tileIndex, int diceTotal) {
 }
 
 void Game::handlePropertyPurchase(Player& player, Property& prop) {
-    if (prop.type() == PropertyType::RAILROAD || prop.type() == PropertyType::UTILITY) {
-        prop.setOwner(&player);
-        prop.setStatus(PropertyStatus::OWNED);
-        player.addProperty(&prop);
-        refreshPropertyCounts(&player);
-        logger_.log(currentTurn_, player.username(), prop.type() == PropertyType::RAILROAD ? "RAILROAD" : "UTILITY", prop.name() + " kini milik " + player.username() + " (otomatis)");
-        return;
-    }
-    bool wantsBuy = player.canAfford(prop.buyPrice()) && cb_.onOfferPurchase && cb_.onOfferPurchase(prop);
-    if (!wantsBuy) { handleAuction(prop); return; }
-    int price = prop.buyPrice();
-    if (player.hasDiscount()) {
-        price = price * (100 - player.discountPct()) / 100;
-        player.clearDiscount();
-        logger_.log(currentTurn_, player.username(), "DISKON", prop.name() + " diskon -> M" + to_string(price));
-    }
-    bank_.collect(player, price);
-    prop.setOwner(&player);
-    prop.setStatus(PropertyStatus::OWNED);
-    player.addProperty(&prop);
-    refreshPropertyCounts(&player);
-    logger_.log(currentTurn_, player.username(), "BELI", "Beli " + prop.name() + " seharga M" + to_string(price));
+    prop.handlePurchase(player, *this);
 }
 
 void Game::handleRentPayment(Player& payer, Property& prop, int diceTotal) {
-    if (prop.isMortgaged()) return;
-    if (prop.owner() == &payer) return;
-    int rent = prop.calcRent(diceTotal);
-    if (rent <= 0) return;
-    logger_.log(currentTurn_, payer.username(), "SEWA", "Bayar M" + to_string(rent) + " ke " + prop.owner()->username() + " (" + prop.name() + ")");
-    if (!payer.canAfford(rent)) { handleBankruptcy(payer, prop.owner()); return; }
-    bank_.transfer(payer, *prop.owner(), rent);
+    prop.handleRent(payer, diceTotal, *this);
 }
 
 void Game::handleTaxPPH(Player& player) {
@@ -278,21 +251,15 @@ void Game::applyFestival(Player& player, const string& code) {
     if (!prop || prop->type() != PropertyType::STREET) throw invalid_argument("Kode properti tidak valid.");
     if (prop->owner() != &player) throw invalid_argument("Properti bukan milikmu.");
     auto* street = static_cast<Street*>(prop);
-    street->festival().boost();
-    logger_.log(currentTurn_, player.username(), "FESTIVAL", prop->name() + ": sewa x" + to_string(street->festival().multiplier()) + " selama 3 giliran");
+    street->applyFestivalBoost(player, *this);
 }
 
 void Game::handleAuction(Property& prop) {
-    logger_.log(currentTurn_, "SISTEM", "LELANG", "Lelang dimulai: " + prop.name());
+    prop.handleAuction(*this);
 }
 
 void Game::finishAuction(Player& winner, Property& prop, int finalBid) {
-    if (finalBid > 0) bank_.collect(winner, finalBid);
-    prop.setOwner(&winner);
-    prop.setStatus(PropertyStatus::OWNED);
-    winner.addProperty(&prop);
-    refreshPropertyCounts(&winner);
-    logger_.log(currentTurn_, winner.username(), "LELANG", "Menang lelang " + prop.name() + " seharga M" + to_string(finalBid));
+    prop.finishAuction(winner, finalBid, *this);
 }
 
 void Game::handleBankruptcy(Player& debtor, Player* creditor) {
@@ -330,55 +297,21 @@ void Game::cmdBuild(const string& code) {
     if (!prop || prop->type() != PropertyType::STREET) throw invalid_argument("Kode properti tidak valid atau bukan Street.");
     if (prop->owner() != &player) throw invalid_argument("Properti bukan milikmu.");
     auto* street = static_cast<Street*>(prop);
-    if (!street->hasMonopoly()) throw logic_error("Kamu belum memonopoli color group ini.");
-    if (street->hasHotel()) throw logic_error("Properti sudah memiliki hotel (maksimal).");
-    auto groupStreets = board_->colorGroupStreets(street->colorGroup());
-    int minLevel = INT_MAX;
-    for (auto* s : groupStreets) minLevel = min(minLevel, s->buildingLevel());
-    if (street->buildingLevel() > minLevel) throw logic_error("Pemerataan bangunan tidak terpenuhi.");
-    int cost = street->nextBuildCost();
-    if (!player.canAfford(cost)) throw runtime_error("Uang tidak cukup untuk membangun.");
-    bank_.collect(player, cost);
-    street->addBuilding();
-    string label = street->hasHotel() ? "Hotel" : to_string(street->buildingLevel()) + " rumah";
-    logger_.log(currentTurn_, player.username(), "BANGUN", prop->name() + " -> " + label + " (biaya M" + to_string(cost) + ")");
+    street->buildHouseOrHotel(player, *this);
 }
 
 void Game::cmdMortgage(const string& code) {
     Player& player = currentPlayer();
     Property* prop = board_->getProperty(code);
     if (!prop || prop->owner() != &player) throw invalid_argument("Properti tidak ditemukan atau bukan milikmu.");
-    if (prop->isMortgaged()) throw logic_error("Properti sudah digadaikan.");
-    if (prop->type() == PropertyType::STREET) {
-        auto* street = static_cast<Street*>(prop);
-        auto group = board_->colorGroupStreets(street->colorGroup());
-        bool hasBldg = false;
-        for (auto* s : group) if (s->buildingLevel() > 0) { hasBldg = true; break; }
-        if (hasBldg) {
-            for (auto* s : group) {
-                int refund = s->demolishAll();
-                if (refund > 0) {
-                    bank_.pay(player, refund);
-                    logger_.log(currentTurn_, player.username(), "JUAL_BANGUNAN", s->name() + " -> refund M" + to_string(refund));
-                }
-            }
-        }
-    }
-    bank_.pay(player, prop->mortgageValue());
-    prop->setStatus(PropertyStatus::MORTGAGED);
-    logger_.log(currentTurn_, player.username(), "GADAI", prop->name() + " digadaikan, menerima M" + to_string(prop->mortgageValue()));
+    prop->performMortgage(player, *this);
 }
 
 void Game::cmdRedeem(const string& code) {
     Player& player = currentPlayer();
     Property* prop = board_->getProperty(code);
     if (!prop || prop->owner() != &player) throw invalid_argument("Properti tidak ditemukan atau bukan milikmu.");
-    if (!prop->isMortgaged()) throw logic_error("Properti tidak sedang digadaikan.");
-    int cost = prop->buyPrice();
-    if (!player.canAfford(cost)) throw runtime_error("Uang tidak cukup untuk menebus. Harga tebus: M" + to_string(cost));
-    bank_.collect(player, cost);
-    prop->setStatus(PropertyStatus::OWNED);
-    logger_.log(currentTurn_, player.username(), "TEBUS", prop->name() + " ditebus, bayar M" + to_string(cost));
+    prop->performRedeem(player, *this);
 }
 
 void Game::cmdUseSkillCard(int handIndex) {
