@@ -87,6 +87,7 @@ vector<unique_ptr<Property>> ConfigLoader::loadProperties(
     getline(f, line); // skip header line
 
     while (getline(f, line)) {
+        while (!line.empty() && isspace(line.back())) line.pop_back();
         if (line.empty() || line[0] == '#') continue;
         istringstream ss(line);
 

@@ -33,14 +33,16 @@ void Game::randomizeTurnOrder() {
 
 
 void Game::initCardDecks() {
-    chanceDeck_.addCard(make_unique<ChanceCard>(ChanceEffect::GO_NEAREST_STATION));
-    chanceDeck_.addCard(make_unique<ChanceCard>(ChanceEffect::MOVE_BACK_3));
-    chanceDeck_.addCard(make_unique<ChanceCard>(ChanceEffect::GO_TO_JAIL));
+    chanceDeck_.addCard(make_unique<ChanceGoNearestStation>());
+    chanceDeck_.addCard(make_unique<ChanceMoveBack3>());
+    chanceDeck_.addCard(make_unique<ChanceGoToJail>());
     chanceDeck_.shuffle();
-    communityDeck_.addCard(make_unique<CommunityCard>(CommunityEffect::BIRTHDAY));
-    communityDeck_.addCard(make_unique<CommunityCard>(CommunityEffect::DOCTOR));
-    communityDeck_.addCard(make_unique<CommunityCard>(CommunityEffect::ELECTION));
+    
+    communityDeck_.addCard(make_unique<CommunityBirthday>());
+    communityDeck_.addCard(make_unique<CommunityDoctor>());
+    communityDeck_.addCard(make_unique<CommunityElection>());
     communityDeck_.shuffle();
+    
     mt19937 rng(random_device{}());
     uniform_int_distribution<> stepDist(1, 6);
     uniform_int_distribution<> pctDist(10, 50);
@@ -324,13 +326,6 @@ void Game::refreshPropertyCounts(Player* player) {
     board_->recalcMonopoly(player);
     board_->recalcRailroadCount(player);
     board_->recalcUtilityCount(player);
-}
-
-void Game::applyLasso(Player& caster, Player& target) {
-    int dest = caster.position();
-    target.setPosition(dest);
-    logger_.log(currentTurn_, caster.username(), "KARTU", "LassoCard: " + target.username() + " ditarik ke " + board_->getTile(dest)->name());
-    board_->getTile(dest)->onLanded(target, *this);
 }
 
 void Game::cmdSave(const string& path) const { (void)path; }
