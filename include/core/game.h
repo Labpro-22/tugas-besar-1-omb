@@ -29,6 +29,8 @@ public:
     function<Player*(Player&)>             onLasso; //Prompt player milih siapa yg mau di lasso
     function<string(Player&)>         onDemolition; //Prompt player milih properti yg mau didemo
     function<void(Player&)>                onDropCard; //Prompt player milih kartu yg mau didrop waktu overflow
+    function<void(Property&)>              onAutoPurchase;  //Prompt player langsung mendapatkan properti tanpa membeli (stasiun)
+    function<void(int, int)>               onDiceRolled; // 
 };
 
 class Game {
@@ -125,10 +127,10 @@ public:
     // Called after any ownership transfer to keep monopoly/RR/util counts current
     void refreshPropertyCounts(Player* player);
     void handlePropertyPurchase(Player& player, Property& prop);
+    void processLanding(Player& player, int tileIndex, int diceTotal);
 
 private:
-    // helper Internal 
-    void processLanding(Player& player, int tileIndex, int diceTotal);
+    // helper Internal
     void handleJailTurn(Player& player);
     bool tryLiquidate(Player& player, int required);
     void liquidateForBankruptcy(Player& debtor, Player* creditor);

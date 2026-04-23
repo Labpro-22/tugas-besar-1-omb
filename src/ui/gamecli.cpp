@@ -44,7 +44,18 @@ void GameCLI::registerCallbacks() {
     cb.onDropCard = [this](Player& p) {
         promptDropCard(p);
     };
+    cb.onDiceRolled = [](int d1, int d2) {
+        cout << "Hasil: " << d1 << " + " << d2 << " = " << (d1 + d2) << "\n";
+    };
 
+    cb.onAutoPurchase = [](Property& prop) {
+        cout << "\nKamu mendarat di " << prop.name() << " (" << prop.code() << ")!\n";
+        cout << "Properti ini " << prop.name() << " otomatis menjadi milikmu!\n";
+    };
+
+    cb.onOfferPurchase = [this](Property& prop) -> bool {
+        return promptBuyStreet(prop);
+    };
     game_.setCallbacks(move(cb));
 }
 
@@ -192,15 +203,14 @@ void GameCLI::cmdLemparDadu() {
     cout << "Mengocok dadu...\n";
     game_.cmdRollDice();
     auto& d = game_.dice();
-    cout << "Hasil: " << d.die1() << " + " << d.die2()
-              << " = " << d.total() << "\n";
-    if (player.isJailed()) {
+    if (d.doubleCount() == 3) {
+        cout << "Tiga kali double — masuk penjara!\n";
         turnOver_ = true;
     } else if (d.isDouble() && d.doubleCount() > 0) {
         cout << "Double! Giliran tambahan ke-" << d.doubleCount() << "\n";
         turnOver_ = true;  // keluar dari while loop, processTurn akan cek isDouble
     } else {
-        if (!game_.isOver()) turnOver_ = true;
+        turnOver_ = false; 
     }
 }
 
@@ -212,14 +222,14 @@ void GameCLI::cmdAturDadu(const string& args) {
     cout << "Dadu diatur secara manual.\n";
     game_.cmdSetDice(d1, d2);
     auto& d = game_.dice();
-    cout << "Hasil: " << d.die1() << " + " << d.die2() << " = " << d.total() << "\n";
-    if (player.isJailed()) {
+    if (d.doubleCount() == 3) {
+        cout << "Tiga kali double — masuk penjara!\n";
         turnOver_ = true;
     } else if (d.isDouble() && d.doubleCount() > 0) {
         cout << "Double! Giliran tambahan ke-" << d.doubleCount() << "\n";
         turnOver_ = true;
     } else {
-        turnOver_ = true;
+        turnOver_ = false;
     }
 }
 
