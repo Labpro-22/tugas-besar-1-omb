@@ -124,10 +124,10 @@ public:
     // Called after any ownership transfer to keep monopoly/RR/util counts current
     void refreshPropertyCounts(Player* player);
     void handlePropertyPurchase(Player& player, Property& prop);
+    void processLanding(Player& player, int tileIndex, int diceTotal);
 
 private:
-    // helper Internal 
-    void processLanding(Player& player, int tileIndex, int diceTotal);
+    // helper Internal
     void handleJailTurn(Player& player);
     bool tryLiquidate(Player& player, int required);
     void liquidateForBankruptcy(Player& debtor, Player* creditor);

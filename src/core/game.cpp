@@ -147,18 +147,11 @@ void Game::teleportPlayer(Player& player, int targetIndex) {
 }
 
 void Game::sendToJail(Player& player) {
-    int jailIdx = 10;
-    for (int i = 0; i < board_->size(); ++i) { if (board_->getTile(i)->type() == TileType::JAIL) { jailIdx = i; break; } }
-    player.setPosition(jailIdx);
-    player.setStatus(PlayerStatus::JAILED);
-    player.resetJailTurns();
-    dice_.resetDoubleCount();
-    logger_.log(currentTurn_, player.username(), "PENJARA", "Masuk penjara");
+    player.goToJail(*this);
 }
 
 void Game::awardGoSalary(Player& player) {
-    bank_.pay(player, special_.goSalary);
-    logger_.log(currentTurn_, player.username(), "GAJI", "Melewati/berhenti di GO, menerima M" + to_string(special_.goSalary));
+    player.receiveGoSalary(*this);
 }
 
 void Game::cmdRollDice() {
@@ -187,29 +180,7 @@ void Game::cmdSetDice(int d1, int d2) {
 }
 
 void Game::handleJailTurn(Player& player) {
-    if (player.jailTurns() >= 3) {
-        if (!player.canAfford(special_.jailFine)) { handleBankruptcy(player, nullptr); return; }
-        bank_.collect(player, special_.jailFine);
-        player.setStatus(PlayerStatus::ACTIVE);
-        player.resetJailTurns();
-        logger_.log(currentTurn_, player.username(), "KELUAR_PENJARA", "Bayar denda M" + to_string(special_.jailFine) + " (wajib)");
-        cmdRollDice();
-        return;
-    }
-    auto [d1, d2] = dice_.roll();
-    if (cb_.onDiceRolled) cb_.onDiceRolled(d1, d2);
-    logger_.log(currentTurn_, player.username(), "DADU_PENJARA", "Lempar: " + to_string(d1) + "+" + to_string(d2));
-    if (dice_.isDouble()) {
-        player.setStatus(PlayerStatus::ACTIVE);
-        player.resetJailTurns();
-        dice_.resetDoubleCount();
-        logger_.log(currentTurn_, player.username(), "KELUAR_PENJARA", "Dadu double!");
-        movePlayer(player, d1 + d2);
-        processLanding(player, player.position(), d1 + d2);
-    } else {
-        player.incrementJailTurns();
-        logger_.log(currentTurn_, player.username(), "PENJARA", "Gagal keluar (percobaan " + to_string(player.jailTurns()) + "/3)");
-    }
+    player.handleJailTurn(*this);
 }
 
 void Game::processLanding(Player& player, int tileIndex, int diceTotal) {
@@ -269,32 +240,7 @@ void Game::finishAuction(Player& winner, Property& prop, int finalBid) {
 }
 
 void Game::handleBankruptcy(Player& debtor, Player* creditor) {
-    logger_.log(currentTurn_, debtor.username(), "BANGKRUT", creditor ? "Kreditor: " + creditor->username() : "Kreditor: Bank");
-    if (cb_.onLiquidation && debtor.maxLiquidation() >= 0) {
-        cb_.onLiquidation(debtor, 0, creditor);
-        if (!debtor.isBankrupt()) return;
-    }
-    debtor.setStatus(PlayerStatus::BANKRUPT);
-    if (creditor) {
-        for (auto* prop : debtor.properties()) {
-            prop->setOwner(creditor);
-            creditor->addProperty(prop);
-            refreshPropertyCounts(creditor);
-        }
-        creditor->operator+=(debtor.balance());
-        debtor.operator-=(debtor.balance());
-        logger_.log(currentTurn_, debtor.username(), "BANGKRUT", "Semua aset dialihkan ke " + creditor->username());
-    } else {
-        for (auto* prop : debtor.properties()) {
-            if (prop->type() == PropertyType::STREET) static_cast<Street*>(prop)->demolishAll();
-            prop->setOwner(nullptr);
-            prop->setStatus(PropertyStatus::BANK);
-            handleAuction(*prop);
-        }
-        bank_.collect(debtor, debtor.balance());
-        logger_.log(currentTurn_, debtor.username(), "BANGKRUT", "Semua properti dikembalikan ke Bank dan dilelang");
-    }
-    debtor.clearProperties();
+    debtor.declareBankruptcy(creditor, *this);
 }
 
 void Game::cmdBuild(const string& code) {

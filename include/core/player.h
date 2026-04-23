@@ -10,6 +10,7 @@ namespace Nimonspoli {
 
 class Property;
 class SkillCard;
+class Game;
 
 class Player {
 public:
@@ -92,6 +93,12 @@ public:
 
     int netWorth() const;
     int maxLiquidation() const;
+
+    // Delegated logic dari Game
+    void goToJail(Game& game);
+    void handleJailTurn(Game& game);
+    void receiveGoSalary(Game& game);
+    void declareBankruptcy(Player* creditor, Game& game);
 
 private:
     string          username_;
