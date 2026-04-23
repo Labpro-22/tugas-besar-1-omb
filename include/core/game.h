@@ -21,6 +21,7 @@ class GameCLI;         // forward
 class GameCallbacks {
 public:
     function<bool(Property&)>              onOfferPurchase; //Prompt player mau beli apa engga, true = iya, false = ga
+    function<void(Property&)>              onAuction;
     function<void(Player&)>                onTaxPPH; // Prompt player milih bayar pake apa
     function<void(Player&)>                onFestival; // Prompt player milih properti buat festival
     function<void(Player&, int, Player*)>  onLiquidation; // prompt si debtor buat liquidkan asset sebanyak amount ke creditor (debtor, amount, creditor)
@@ -61,6 +62,7 @@ public:
     void cmdPrintLog(int n = 0) const;
     void cmdUseSkillCard(int handIndex);
     void cmdDropCard(int handIndex);
+    void cmdLiquidateSell(const string& code);
 
     // Query utk gamestate
     bool           isOver()           const;
@@ -98,9 +100,10 @@ public:
 
     void handleRentPayment(Player& payer, Property& prop, int diceTotal);
     void handleTaxPPH(Player& player);
+    void resolveTaxPPHChoice(Player& player, bool usePercentage);
     void handleTaxPBM(Player& player);
     void handleFestival(Player& player);
-    void handleBankruptcy(Player& debtor, Player* creditor);  // nullptr = bank
+    void handleBankruptcy(Player& debtor, Player* creditor, int required = 0);  // nullptr = bank
     void handleAuction(Property& prop);
 
     void applyFestival(Player& player, const string& code);
