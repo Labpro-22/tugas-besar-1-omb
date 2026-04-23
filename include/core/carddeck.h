@@ -24,7 +24,7 @@ public:
     T* draw() {
         if (drawPile_.empty()) reshuffleDiscard();
         if (drawPile_.empty()) throw runtime_error("CardDeck is empty.");
-        T* card = drawPile_.back().get();
+        T* card = drawPile_.back().release();
         drawPile_.pop_back();
         return card;
     }

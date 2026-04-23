@@ -3,6 +3,7 @@
 #include "data/configloader.h"
 #include "core/game.h"
 #include "ui/gameCLI.h" 
+
 using namespace Nimonspoli;
 
 int main() {
@@ -19,7 +20,7 @@ int main() {
         auto properties = loader.loadProperties(rrCfg, utilCfg);
         auto board      = loader.buildBoard(properties, special, tax);
         game.setBoard(std::move(board));
-
+        // Harus nambah loader baru aksi.txt
         // Hand off ke CLI
         Nimonspoli::GameCLI cli(game);
         cli.run();

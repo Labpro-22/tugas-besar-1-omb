@@ -57,16 +57,17 @@ public:
             throw std::logic_error("Cannot build further — already has hotel.");
         ++buildingLevel_;
     }
+
+    void performMortgage(Player& player, Game& game) override;
+    void buildHouseOrHotel(Player& player, Game& game);
+    void applyFestivalBoost(Player& player, Game& game);
  
-    // Festival 
     FestivalEffect&       festival()       { return festival_; }
     const FestivalEffect& festival() const { return festival_; }
  
-    // Monopoly flag  
     void setMonopoly(bool v) { monopoly_ = v; }
     bool hasMonopoly()  const { return monopoly_; }
  
-    // Utils 
     ColorGroup colorGroup() const { return colorGroup_; }
     int houseUpgradeCost()  const { return houseUpgradeCost_; }
     int hotelUpgradeCost()  const { return hotelUpgradeCost_; }
@@ -80,14 +81,13 @@ public:
         return buyPrice_ + buildingValue;
     }
  
-    // save/load nanti
     void setBuildingLevel(int lvl) { buildingLevel_ = lvl; }
  
 private:
     ColorGroup         colorGroup_;
     int                houseUpgradeCost_;
     int                hotelUpgradeCost_;
-    std::array<int,6>  rentTable_;   // index 0=botak…5=hotel
+    std::array<int,6>  rentTable_;   
     int                buildingLevel_ = 0;
     bool               monopoly_      = false;
     FestivalEffect     festival_;
@@ -113,7 +113,6 @@ private:
     int ownerRRCount_ = 1;
 };
  
-// Utility 
 class Utility : public Property {
 public:
     Utility(const std::string& code, const std::string& name,
@@ -134,4 +133,4 @@ private:
     int ownerUtilCount_ = 1;
 };
  
-} 
+}
