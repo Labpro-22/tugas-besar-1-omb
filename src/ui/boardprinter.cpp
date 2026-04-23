@@ -86,8 +86,13 @@ string BoardPrinter::tileCell(int idx) const {
         for (auto& p : game_.players()) {
             int pi = &p - &game_.players()[0];
             if (p->position() == idx) {
-                if (p->isJailed()) jailed  += to_string(pi+1);
-                else               visiting += to_string(pi+1);
+                if (p->isJailed()) {
+                    if (!jailed.empty()) jailed += ",";
+                    jailed += to_string(pi + 1);
+                } else {
+                    if (!visiting.empty()) visiting += ",";
+                    visiting += to_string(pi + 1);
+                }
             }
         }
         string cell = code;
