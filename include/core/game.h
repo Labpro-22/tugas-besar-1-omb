@@ -105,8 +105,7 @@ public:
 
     void applyFestival(Player& player, const string& code);
     void finishAuction(Player& winner, Property& prop, int finalBid);
-    void applyLasso(Player& caster, Player& target);
-    void applyDemolition(Player& caster, const string& targetCode);
+
 
     int  lastDiceTotal() const { return lastDiceTotal_; }
 
