@@ -24,13 +24,19 @@ public:
     T* draw() {
         if (drawPile_.empty()) reshuffleDiscard();
         if (drawPile_.empty()) throw runtime_error("CardDeck is empty.");
-        T* card = drawPile_.back().get();
+        inFlightPile_.push_back(std::move(drawPile_.back()));
         drawPile_.pop_back();
-        return card;
+        return inFlightPile_.back().get();
     }
 
     void discard(T* card) {
-        discardPile_.push_back(unique_ptr<T>(card));
+        for (auto it = inFlightPile_.begin(); it != inFlightPile_.end(); ++it) {
+            if (it->get() == card) {
+                discardPile_.push_back(std::move(*it));
+                inFlightPile_.erase(it);
+                return;
+            }
+        }
     }
 
     int remaining() const { return static_cast<int>(drawPile_.size()); }
@@ -39,6 +45,12 @@ public:
     std::vector<T*> peekDrawPile() const {
         std::vector<T*> out;
         for (const auto& c : drawPile_) out.push_back(c.get());
+        return out;
+    }
+
+    std::vector<T*> peekDiscardPile() const {
+        std::vector<T*> out;
+        for (const auto& c : discardPile_) out.push_back(c.get());
         return out;
     }
 
@@ -51,8 +63,9 @@ private:
     }
 
     vector<unique_ptr<T>> drawPile_;
+    vector<unique_ptr<T>> inFlightPile_;
     vector<unique_ptr<T>> discardPile_;
-    mt19937               rng_; // Tipe data buat rng ini
+    mt19937               rng_;
 };
 
-} 
+}
