@@ -48,7 +48,10 @@ void Player::goToJail(Game& game) {
 
 void Player::handleJailTurn(Game& game) {
     if (jailTurns_ >= 3) {
-        if (!canAfford(game.specialConfig().jailFine)) { declareBankruptcy(nullptr, game); return; }
+        if (!canAfford(game.specialConfig().jailFine)) { 
+            game.handleBankruptcy(*this, nullptr, game.specialConfig().jailFine); 
+            return; 
+        }
         game.bank().collect(*this, game.specialConfig().jailFine);
         setStatus(PlayerStatus::ACTIVE);
         resetJailTurns();
@@ -56,19 +59,24 @@ void Player::handleJailTurn(Game& game) {
         game.cmdRollDice();
         return;
     }
+    
     auto [d1, d2] = game.dice().roll();
     if (game.callbacks().onDiceRolled) game.callbacks().onDiceRolled(d1, d2);
+    
     game.logger().log(game.currentTurn(), username_, "DADU_PENJARA", "Lempar: " + std::to_string(d1) + "+" + std::to_string(d2));
+    
     if (game.dice().isDouble()) {
         setStatus(PlayerStatus::ACTIVE);
         resetJailTurns();
         game.dice().resetDoubleCount();
         game.logger().log(game.currentTurn(), username_, "KELUAR_PENJARA", "Dadu double!");
+        setHasRolled(true);
         game.movePlayer(*this, d1 + d2);
         game.processLanding(*this, position_, d1 + d2);
     } else {
         incrementJailTurns();
         game.logger().log(game.currentTurn(), username_, "PENJARA", "Gagal keluar (percobaan " + std::to_string(jailTurns_) + "/3)");
+        setHasRolled(true);
     }
 }
 
@@ -77,33 +85,45 @@ void Player::receiveGoSalary(Game& game) {
     game.logger().log(game.currentTurn(), username_, "GAJI", "Melewati/berhenti di GO, menerima M" + std::to_string(game.specialConfig().goSalary));
 }
 
-void Player::declareBankruptcy(Player* creditor, Game& game) {
+void Player::declareBankruptcy(Player* creditor, int required, Game& game) {
     game.logger().log(game.currentTurn(), username_, "BANGKRUT", creditor ? "Kreditor: " + creditor->username() : "Kreditor: Bank");
-    if (game.callbacks().onLiquidation && maxLiquidation() >= 0) {
-        game.callbacks().onLiquidation(*this, 0, creditor);
-        if (!isBankrupt()) return;
+    
+    // Trigger likuidasi HANYA jika pemain punya aset yang bisa dilikuidasi
+    if (game.callbacks().onLiquidation && !properties_.empty()) {
+        game.callbacks().onLiquidation(*this, required, creditor);
+        if (!isBankrupt()) return; // Terselamatkan oleh likuidasi
     }
+    
     setStatus(PlayerStatus::BANKRUPT);
+    std::vector<Property*> assets = properties_;
+    
     if (creditor) {
-        for (auto* prop : properties_) {
+        for (auto* prop : assets) {
             prop->setOwner(creditor);
             creditor->addProperty(prop);
-            game.refreshPropertyCounts(creditor);
         }
-        *creditor += balance_;
-        *this -= balance_;
+        game.refreshPropertyCounts(this);
+        game.refreshPropertyCounts(creditor);
+        
+        creditor->operator+=(balance_);
+        balance_ = 0;
+        
         game.logger().log(game.currentTurn(), username_, "BANGKRUT", "Semua aset dialihkan ke " + creditor->username());
     } else {
-        for (auto* prop : properties_) {
-            if (prop->type() == PropertyType::STREET) static_cast<Street*>(prop)->demolishAll();
+        for (auto* prop : assets) {
+            if (prop->type() == PropertyType::STREET) {
+                // Cast aman karena kita tahu ini Street
+                static_cast<Street*>(prop)->demolishAll();
+            }
             prop->setOwner(nullptr);
             prop->setStatus(PropertyStatus::BANK);
             game.handleAuction(*prop);
         }
+        game.refreshPropertyCounts(this);
         game.bank().collect(*this, balance_);
         game.logger().log(game.currentTurn(), username_, "BANGKRUT", "Semua properti dikembalikan ke Bank dan dilelang");
     }
+    
     clearProperties();
 }
-
 }

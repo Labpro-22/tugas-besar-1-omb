@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <climits>
-#include <filesystem>
+#include <fstream>
 #include <map>
 using namespace std;
 namespace Nimonspoli {
@@ -20,6 +20,9 @@ void GameCLI::registerCallbacks() {
     cb.onOfferPurchase = [this](Property& prop) -> bool {
         return promptBuyStreet(prop);
     };
+    cb.onAuction = [this](Property& prop) {
+        runAuction(prop);
+    };
     cb.onTaxPPH = [this](Player&) {
         promptPPH();
     };
@@ -29,9 +32,8 @@ void GameCLI::registerCallbacks() {
     cb.onLiquidation = [this](Player&, int required, Player* creditor) {
         promptLiquidation(required, creditor);
     };
-    cb.onTeleport = [this](Player& player) -> int {
+    cb.onTeleport = [this](Player&) -> int {
         return promptTeleportIndex();
-        (void)player;
     };
     cb.onLasso = [this](Player& caster) -> Player* {
         return promptLassoTarget(caster);
@@ -39,8 +41,8 @@ void GameCLI::registerCallbacks() {
     cb.onDemolition = [this](Player& caster) -> string {
         return promptDemolitionCode(caster);
     };
-    cb.onDropCard = [this](Player&) {
-        promptDropCard();
+    cb.onDropCard = [this](Player& p) {
+        promptDropCard(p);
     };
     cb.onDiceRolled = [](int d1, int d2) {
         cout << "Hasil: " << d1 << " + " << d2 << " = " << (d1 + d2) << "\n";
@@ -80,7 +82,7 @@ void GameCLI::showMainMenu() {
 }
 
 void GameCLI::setupNewGame() {
-    int n = promptInt("Jumlah pemain (2-4)", 2, 4);
+    int n = promptInt("Jumlah pemain ", 2, 4);
     for (int i = 0; i < n; ++i) {
         string name = prompt("Username pemain " + to_string(i + 1));
         while (name.empty()) name = prompt("Username tidak boleh kosong");
@@ -113,14 +115,12 @@ void GameCLI::processTurn() {
 
     game_.runTurn();
 
-    if (player.handSize() > Player::MAX_HAND_SIZE) promptDropCard();
-
     printer_.printTurnHeader();
     turnOver_ = false;
 
     if (player.isJailed()) {
         cout << "Kamu di penjara (percobaan ke-" << player.jailTurns()
-                  << "). Opsi: BAYAR_DENDA | LEMPAR_DADU | GUNAKAN_KEMAMPUAN\n";
+                  << "). Opsi: BAYAR_DENDA | LEMPAR_DADU\n";
     }
 
     while (!turnOver_ && !game_.isOver()) {
@@ -133,7 +133,21 @@ void GameCLI::processTurn() {
         }
     }
 
-    if (!game_.isOver()) game_.advanceTurn();
+    // Jangan advance turn jika pemain dapat double (giliran tambahan untuk pemain yang sama).
+    // doubleCount > 0 && isDouble() berarti lemparan terakhir adalah double.
+    bool gotDouble = game_.dice().isDouble() && game_.dice().doubleCount() > 0
+                     && !player.isJailed() && !player.isBankrupt();
+    if (!game_.isOver()) {
+        if (gotDouble) {
+            // Giliran tambahan: reset state lempar dan penggunaan kartu,
+            // tapi pertahankan doubleCount agar triple-double bisa terdeteksi.
+            player.setHasRolled(false);
+            player.setUsedCard(false);
+        } else {
+            game_.dice().resetDoubleCount();
+            game_.advanceTurn();
+        }
+    }
 }
 
 void GameCLI::dispatch(const string& line) {
@@ -192,14 +206,16 @@ void GameCLI::cmdLemparDadu() {
     if (d.doubleCount() == 3) {
         cout << "Tiga kali double — masuk penjara!\n";
         turnOver_ = true;
-    } else if (d.isDouble()) {
+    } else if (d.isDouble() && d.doubleCount() > 0) {
         cout << "Double! Giliran tambahan ke-" << d.doubleCount() << "\n";
+        turnOver_ = true;  // keluar dari while loop, processTurn akan cek isDouble
     } else {
         turnOver_ = false; 
     }
 }
 
 void GameCLI::cmdAturDadu(const string& args) {
+    Player& player = game_.currentPlayer();
     istringstream ss(args);
     int d1, d2;
     if (!(ss >> d1 >> d2)) { printError("Format: ATUR_DADU X Y  (1-6)"); return; }
@@ -209,8 +225,9 @@ void GameCLI::cmdAturDadu(const string& args) {
     if (d.doubleCount() == 3) {
         cout << "Tiga kali double — masuk penjara!\n";
         turnOver_ = true;
-    } else if (d.isDouble()) {
+    } else if (d.isDouble() && d.doubleCount() > 0) {
         cout << "Double! Giliran tambahan ke-" << d.doubleCount() << "\n";
+        turnOver_ = true;
     } else {
         turnOver_ = false;
     }
@@ -342,7 +359,12 @@ void GameCLI::cmdBangun() {
 
 void GameCLI::cmdSimpan(const string& args) {
     string path = args.empty() ? prompt("Nama file") : args;
-    if (filesystem::exists(path)) if (!promptYN("File \"" + path + "\" sudah ada. Timpa? (y/n)")) return;
+    {
+        ifstream existing(path);
+        if (existing.good()) {
+            if (!promptYN("File \"" + path + "\" sudah ada. Timpa? (y/n)")) return;
+        }
+    }
     try {
         SaveManager::save(game_, path);
         game_.logger().log(game_.currentTurn(), game_.currentPlayer().username(), "SIMPAN", "Disimpan ke " + path);
@@ -366,6 +388,7 @@ void GameCLI::cmdCetakLog(const string& args) {
 
 void GameCLI::cmdGunakanKemampuan() {
     Player& player = game_.currentPlayer();
+    if (player.isJailed()) {cout << "Tidak bisa menggunakan kartu kemampuan saat di penjara.\n"; return;}
     if (player.hasRolled()) {cout << "Kartu kemampuan hanya bisa digunakan SEBELUM melempar dadu.\n"; return;}
     if (player.usedCardThisTurn()) {cout << "Sudah menggunakan kartu pada giliran ini (maks 1x).\n"; return;}
     if (player.handSize() == 0) {cout << "Kamu tidak memiliki kartu kemampuan.\n"; return;}
@@ -397,21 +420,14 @@ bool GameCLI::promptBuyStreet(Property& prop) {
 void GameCLI::runAuction(Property& prop) {
     auto active = game_.activePlayers();
     Player* trigger = &game_.currentPlayer();
-
-    vector<Player*> order;
-    size_t trigIdx = 0;
-    for (size_t i = 0; i < active.size(); ++i)
-        if (active[i] == trigger) { trigIdx = i; break; }
-    for (size_t i = 1; i < active.size(); ++i) order.push_back(active[(trigIdx + i) % active.size()]);
-    if (order.empty()) order = active; 
+    vector<Player*> order = game_.board().auctionOrder(trigger, active);
 
     cout << "\nProperti " << prop.name() << " (" << prop.code() << ") akan dilelang!\n" << "Urutan lelang dimulai dari pemain setelah " << trigger->username() << ".\n";
 
-    int highBid   = -1;
+    int highBid   = 0;
     Player* winner = nullptr;
     int passCount  = 0;
-    int needed     = static_cast<int>(order.size()) - 1;
-    if (needed < 0) needed = 0;
+    int needed     = game_.board().auctionPassesNeeded(order);
     size_t idx = 0;
 
     while (true) {
@@ -430,7 +446,26 @@ void GameCLI::runAuction(Property& prop) {
             ++passCount;
             game_.logger().log(game_.currentTurn(), cur->username(), "LELANG", "PASS");
         } else if (action == "BID") {
-            int amount = 0; ss >> amount;
+            string rawAmount;
+            ss >> rawAmount;
+            int amount = -1;
+            if (!rawAmount.empty()) {
+                string digits;
+                for (char c : rawAmount) {
+                    if (isdigit(static_cast<unsigned char>(c))) digits.push_back(c);
+                }
+                if (!digits.empty()) {
+                    try {
+                        amount = stoi(digits);
+                    } catch (...) {
+                        amount = -1;
+                    }
+                }
+            }
+            if (amount <= 0) {
+                cout << "Masukkan BID dengan angka valid, contoh: BID 100\n";
+                continue;
+            }
             if (amount <= highBid) {cout << "Penawaran harus lebih dari M" << highBid << "\n"; continue;}
             if (!cur->canAfford(amount)) {cout << "Uang tidak cukup (saldo: M" << cur->balance() << ")\n"; continue;}
             highBid   = amount;
@@ -474,26 +509,16 @@ void GameCLI::promptPPH() {
     int choice = promptInt("Pilihan", 1, 2);
     if (choice == 1) {
         int flat = game_.taxConfig().pphFlat;
-        if (!player.canAfford(flat)) {
-            cout << "Uang tidak cukup untuk bayar M" << flat << "! Memproses kebangkrutan...\n";
-            game_.handleBankruptcy(player, nullptr);
-        } else {
-            game_.bank().collect(player, flat);
-            game_.logger().log(game_.currentTurn(), player.username(), "PAJAK", "PPH flat M" + to_string(flat));
-            cout << "Pajak M" << flat << " dibayar. Saldo: M" << player.balance() << "\n";
-        }
+        game_.resolveTaxPPHChoice(player, false);
+        if (player.isBankrupt()) cout << "Uang tidak cukup untuk bayar M" << flat << "! Memproses kebangkrutan...\n";
+        else cout << "Pajak M" << flat << " dibayar. Saldo: M" << player.balance() << "\n";
     } else {
         int wealth = player.netWorth();
         int tax    = static_cast<int>(wealth * game_.taxConfig().pphPercent);
         cout << "Total kekayaan:\n" << "  Uang tunai   : M" << player.balance() << "\n" << "  Total        : M" << wealth << "\n" << "  Pajak " << (int)(game_.taxConfig().pphPercent*100) << "%   : M" << tax << "\n";
-        if (!player.canAfford(tax)) {
-            cout << "Uang tidak cukup! Memproses kebangkrutan...\n";
-            game_.handleBankruptcy(player, nullptr);
-        } else {
-            game_.bank().collect(player, tax);
-            game_.logger().log(game_.currentTurn(), player.username(), "PAJAK", "PPH " + to_string((int)(game_.taxConfig().pphPercent*100)) + "% = M" + to_string(tax));
-            cout << "Pajak M" << tax << " dibayar. Saldo: M" << player.balance() << "\n";
-        }
+        game_.resolveTaxPPHChoice(player, true);
+        if (player.isBankrupt()) cout << "Uang tidak cukup! Memproses kebangkrutan...\n";
+        else cout << "Pajak M" << tax << " dibayar. Saldo: M" << player.balance() << "\n";
     }
 }
 
@@ -571,13 +596,10 @@ void GameCLI::promptLiquidation(int required, Player* creditor) {
 
         auto [action, prop] = opts[choice - 1];
         if (action == "SELL") {
-            int val = prop->liquidationValue();
-            game_.bank().pay(player, val);
-            prop->setOwner(nullptr);
-            prop->setStatus(PropertyStatus::BANK);
-            player.removeProperty(prop);
-            game_.logger().log(game_.currentTurn(), player.username(), "JUAL", prop->name() + " -> M" + to_string(val));
-            cout << prop->name() << " terjual ke Bank. Saldo: M" << player.balance() << "\n";
+            try {
+                game_.cmdLiquidateSell(prop->code());
+                cout << prop->name() << " terjual ke Bank. Saldo: M" << player.balance() << "\n";
+            } catch (const exception& e) { printError(e.what()); }
         } else {
             try {
                 game_.cmdMortgage(prop->code());
@@ -602,12 +624,17 @@ void GameCLI::promptLiquidation(int required, Player* creditor) {
     }
 }
 
-void GameCLI::promptDropCard() {
-    Player& player = game_.currentPlayer();
-    cout << "\nPERINGATAN: Tangan penuh (" << player.handSize() << " kartu, maks " << Player::MAX_HAND_SIZE << ")!\n" << "Kamu harus membuang 1 kartu:\n";
-    for (int i = 0; i < player.handSize(); ++i) cout << i+1 << ". " << player.hand()[i]->description() << "\n";
+void GameCLI::promptDropCard(Player& player) {
+    cout << "\nPERINGATAN: Tangan penuh (" << player.handSize() << " kartu, maks " << Player::MAX_HAND_SIZE << ")!\n"
+         << "Kamu harus membuang 1 kartu:\n";
+    for (int i = 0; i < player.handSize(); ++i)
+        cout << i+1 << ". " << player.hand()[i]->description() << "\n";
     int choice = promptInt("Pilih kartu yang dibuang", 1, player.handSize());
-    game_.cmdDropCard(choice - 1);
+    // cmdDropCard pakai currentPlayer, jadi kita bypass langsung
+    SkillCard* card = player.hand()[choice - 1];
+    player.removeFromHand(choice - 1);
+    game_.skillDeck().discard(card);
+    game_.logger().log(game_.currentTurn(), player.username(), "DROP_KARTU", "Membuang " + card->description());
     cout << "Kartu dibuang. Sisa: " << player.handSize() << " kartu.\n";
 }
 
@@ -706,4 +733,4 @@ void GameCLI::printError(const string& msg) const {
     cout << "[!] " << msg << "\n";
 }
 
-} 
+}

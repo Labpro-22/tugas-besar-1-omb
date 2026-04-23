@@ -98,8 +98,7 @@ public:
     void goToJail(Game& game);
     void handleJailTurn(Game& game);
     void receiveGoSalary(Game& game);
-    void declareBankruptcy(Player* creditor, Game& game);
-
+    void declareBankruptcy(Player* creditor, int required, Game& game);
 private:
     string          username_;
     int                  balance_          = 0;
