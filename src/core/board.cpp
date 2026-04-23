@@ -7,11 +7,15 @@ using namespace std;
 namespace Nimonspoli {
 
 void Board::addTile(unique_ptr<Tile> tile) {
+    if (static_cast<int>(tiles_.size()) >= BOARD_SIZE)
+        throw out_of_range("Board overflow: too many tiles");
     tiles_.push_back(move(tile));
 }
 
 void Board::addProperty(unique_ptr<Property> prop) {
     string code = prop->code();
+    if (properties_.count(code))
+        throw invalid_argument("Duplicate property code: " + code);
     properties_[code] = move(prop);
 }
 
@@ -79,8 +83,11 @@ void Board::recalcMonopoly(Player* player) {
     }
     for (auto& [cg, cnt] : total) {
         bool mono = (owned.count(cg) && owned[cg] == cnt);
-        for (auto* s : colorGroupStreets(cg))
-            s->setMonopoly(mono && s->owner() == player);
+        for (auto* s : colorGroupStreets(cg)) {
+            if (s->owner() == player) {
+                s->setMonopoly(mono);
+            }
+        }
     }
 }
 
@@ -103,6 +110,32 @@ void Board::tickFestivals(Player* player) {
             s->festival().tick();
         }
     }
+}
+
+vector<Player*> Board::auctionOrder(Player* trigger, const vector<Player*>& activePlayers) const {
+    size_t trigIdx = 0;
+    for (size_t i = 0; i < activePlayers.size(); ++i) {
+        if (activePlayers[i] == trigger) { trigIdx = i; break; }
+    }
+    vector<Player*> order;
+    for (size_t i = 1; i < activePlayers.size(); ++i)
+        order.push_back(activePlayers[(trigIdx + i) % activePlayers.size()]);
+    if (order.empty()) order = activePlayers;
+    return order;
+}
+
+int Board::auctionPassesNeeded(const vector<Player*>& auctionParticipants) const {
+    int needed = static_cast<int>(auctionParticipants.size()) - 1;
+    return (needed < 0) ? 0 : needed;
+}
+int Board::findTileIndex(TileType type) const {
+    for (int i = 0; i < static_cast<int>(tiles_.size()); ++i)
+        if (tiles_[i]->type() == type) return i;
+    return -1;
+}
+string Board::tileDescription(int index) const {
+    if (index < 0 || index >= static_cast<int>(tiles_.size())) return "???";
+    return tiles_[index]->summary();
 }
 
 } 
