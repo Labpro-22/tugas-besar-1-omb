@@ -24,8 +24,10 @@ ChanceCard::ChanceCard(ChanceEffect effect) : Card(""), effect_(effect) {
 void ChanceCard::execute(Player& player, Game& game) {
     switch (effect_) {
         case ChanceEffect::GO_NEAREST_STATION: {
-            int nearest = game.board().nearestRailroad(player.position());
-            game.teleportPlayer(player, nearest);
+            int oldPos = player.position();
+            int nearest = game.board().nearestRailroad(oldPos);
+            int steps = (nearest - oldPos + game.board().size()) % game.board().size();
+            game.movePlayer(player, steps, true);
             game.board().getTile(nearest)->onLanded(player, game);
             break;
         }
@@ -59,7 +61,7 @@ void CommunityCard::execute(Player& player, Game& game) {
             for (auto* other : active) {
                 if (other == &player) continue;
                 if (!other->canAfford(100)) {
-                    game.handleBankruptcy(*other, &player);
+                    game.handleBankruptcy(*other, &player, 100);
                 } else {
                     game.bank().transfer(*other, player, 100);
                     game.logger().log(game.currentTurn(), other->username(),
@@ -70,7 +72,7 @@ void CommunityCard::execute(Player& player, Game& game) {
         }
         case CommunityEffect::DOCTOR: {
             if (!player.canAfford(700)) {
-                game.handleBankruptcy(player, nullptr);
+                game.handleBankruptcy(player, nullptr, 700);
             } else {
                 game.bank().collect(player, 700);
                 game.logger().log(game.currentTurn(), player.username(),
@@ -82,7 +84,7 @@ void CommunityCard::execute(Player& player, Game& game) {
             for (auto* other : active) {
                 if (other == &player) continue;
                 if (!player.canAfford(200)) {
-                    game.handleBankruptcy(player, other);
+                    game.handleBankruptcy(player, other, 200);
                     return;
                 }
                 game.bank().transfer(player, *other, 200);
