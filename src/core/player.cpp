@@ -127,11 +127,25 @@ void Player::declareBankruptcy(Player* creditor, int required, Game& game) {
 }
 
 void Player::useSkillCard(int handIndex, Game& game) {
+    if (handIndex < 0 || handIndex >= handSize()) throw std::out_of_range("Indeks kartu tidak valid.");
     if (hasRolled_) throw std::logic_error("Kartu kemampuan hanya bisa digunakan SEBELUM melempar dadu.");
     if (usedCardThisTurn_) throw std::logic_error("Penggunaan kartu dibatasi maksimal 1 kali dalam 1 giliran.");
-    if (handIndex < 0 || handIndex >= handSize()) throw std::out_of_range("Indeks kartu tidak valid.");
     
     SkillCard* card = hand_[handIndex];
+
+    if (isJailed()) {
+        if (card->skillType() != SkillCardType::SHIELD) {
+            throw std::logic_error("Kartu kemampuan ini tidak bisa digunakan, Opsi: LEMPAR_DADU | BAYAR_DENDA");
+        }
+        removeFromHand(handIndex);
+        setStatus(PlayerStatus::ACTIVE);
+        resetJailTurns();
+        setUsedCard(true);
+        game.skillDeck().discard(card);
+        game.logger().log(game.currentTurn(), username_, "KELUAR_PENJARA", "Menggunakan kartu bebas penjara");
+        return;
+    }
+
     removeFromHand(handIndex);
     
     card->use(*this, game);
