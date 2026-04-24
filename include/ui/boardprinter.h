@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <array>
 #include "core/game.h"
 using namespace std;
 namespace Nimonspoli {
@@ -45,6 +46,8 @@ private:
 
     string tileCell(int tileIndex) const;
     string colorCode(int tileIndex) const;
+    string colorTag(int tileIndex) const;
+    array<string,2> tileLines(int tileIndex) const;
     string buildingStr(int level) const;
     string ownerStr(const Property* prop) const;
     string playerBadges(int tileIndex) const;
