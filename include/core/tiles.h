@@ -16,6 +16,11 @@ public:
 
     virtual ~Tile() = default;
     virtual void onLanded(Player& player, Game& game) = 0;
+
+    virtual std::string summary() const {
+        return name_ + " (" + code_ + ")";
+    }
+
     int                index() const { return index_; }
     const std::string& code()  const { return code_; }
     const std::string& name()  const { return name_; }
@@ -40,6 +45,9 @@ public:
 
     void      onLanded(Player& player, Game& game) override;
     Property* property() const { return property_; }
+    
+    std::string summary() const override;
+
 
 private:
     Property* property_;   
@@ -59,14 +67,10 @@ private:
 
 class JailTile : public Tile {
 public:
-    JailTile(int index, int jailFine)
-        : Tile(index, "PEN", "Penjara", TileType::JAIL), jailFine_(jailFine) {}
+    explicit JailTile(int index)
+        : Tile(index, "PEN", "Penjara", TileType::JAIL) {}
 
     void onLanded(Player& player, Game& game) override;
-    int  jailFine() const { return jailFine_; }
-
-private:
-    int jailFine_;
 };
 
 class FreeParkingTile : public Tile {
@@ -128,4 +132,4 @@ public:
     void onLanded(Player& player, Game& game) override;
 };
 
-} 
+}

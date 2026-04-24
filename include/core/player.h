@@ -93,13 +93,19 @@ public:
 
     int netWorth() const;
     int maxLiquidation() const;
-
+    // Tambahkan di area public
+    void useSkillCard(int handIndex, Game& game);
+    void dropSkillCard(int handIndex, Game& game);
     // Delegated logic dari Game
     void goToJail(Game& game);
     void handleJailTurn(Game& game);
     void receiveGoSalary(Game& game);
-    void declareBankruptcy(Player* creditor, Game& game);
-
+    void declareBankruptcy(Player* creditor, int required, Game& game);
+    Property* getOwnedProperty(const std::string& code) const;
+    void buildProperty(const std::string& code, Game& game);
+    void mortgageProperty(const std::string& code, Game& game);
+    void redeemProperty(const std::string& code, Game& game);
+    void applyFestival(const std::string& code, Game& game);
 private:
     string          username_;
     int                  balance_          = 0;

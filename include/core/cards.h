@@ -20,27 +20,56 @@ protected:
     std::string description_;
 };
 
-// Chance cards 
+// Abstract Chance Card
 class ChanceCard : public Card {
 public:
-    explicit ChanceCard(ChanceEffect effect);
-    void execute(Player& player, Game& game) override;
-    ChanceEffect effect() const { return effect_; }
-
-private:
-    ChanceEffect effect_;
+    explicit ChanceCard(const std::string& desc) : Card(desc) {}
+    virtual void execute(Player& player, Game& game) = 0;
 };
 
-// Community Chest cards 
+class ChanceGoNearestStation : public ChanceCard {
+public:
+    ChanceGoNearestStation();
+    void execute(Player& player, Game& game) override;
+};
+
+class ChanceMoveBack3 : public ChanceCard {
+public:
+    ChanceMoveBack3();
+    void execute(Player& player, Game& game) override;
+};
+
+class ChanceGoToJail : public ChanceCard {
+public:
+    ChanceGoToJail();
+    void execute(Player& player, Game& game) override;
+};
+
+// Abstract Community Chest Card
 class CommunityCard : public Card {
 public:
-    explicit CommunityCard(CommunityEffect effect);
-    void execute(Player& player, Game& game) override;
-    CommunityEffect effect() const { return effect_; }
-
-private:
-    CommunityEffect effect_;
+    explicit CommunityCard(const std::string& desc) : Card(desc) {}
+    virtual void execute(Player& player, Game& game) = 0;
 };
+
+class CommunityBirthday : public CommunityCard {
+public:
+    CommunityBirthday();
+    void execute(Player& player, Game& game) override;
+};
+
+class CommunityDoctor : public CommunityCard {
+public:
+    CommunityDoctor();
+    void execute(Player& player, Game& game) override;
+};
+
+class CommunityElection : public CommunityCard {
+public:
+    CommunityElection();
+    void execute(Player& player, Game& game) override;
+};
+
 
 // Abstract SkillCard 
 class SkillCard : public Card {

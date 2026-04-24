@@ -39,7 +39,7 @@ public:
     bool isOwned()      const { return status_ == PropertyStatus::OWNED; }
     bool isMortgaged()  const { return status_ == PropertyStatus::MORTGAGED; }
     bool isBank()       const { return status_ == PropertyStatus::BANK; }
-
+    virtual void performLiquidation(Player& player, Game& game);
     virtual int liquidationValue() const { return buyPrice_; }
 
 protected:

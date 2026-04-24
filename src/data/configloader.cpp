@@ -1,6 +1,8 @@
 #include "data/configloader.h"
 #include "core/board.h"
 #include "core/tiles.h"
+#include <cmath>
+#include <vector>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -85,17 +87,79 @@ vector<unique_ptr<Property>> ConfigLoader::loadProperties(
     getline(f, line); // skip header line
 
     while (getline(f, line)) {
+        while (!line.empty() && isspace(line.back())) line.pop_back();
         if (line.empty() || line[0] == '#') continue;
         istringstream ss(line);
 
         int id; string code, name, jenis, warna;
-        ss >> id >> code >> name >> jenis >> warna;
+        if (!(ss >> id >> code >> name >> jenis >> warna)) {
+            throw runtime_error("Malformed property row: " + line);
+        }
 
         if (jenis == "STREET") {
             int buyPrice, mortgageValue, houseUpg, hotelUpg;
-            ss >> buyPrice >> mortgageValue >> houseUpg >> hotelUpg;
+            if (!(ss >> buyPrice >> mortgageValue >> houseUpg >> hotelUpg)) {
+                throw runtime_error("Malformed STREET row: " + line);
+            }
             array<int,6> rents{};
-            for (int& r : rents) ss >> r;
+            vector<string> rentTokens;
+            string tok;
+            while (ss >> tok) rentTokens.push_back(tok);
+
+            auto parseInt = [&](const string &s) {
+                try { return stoi(s); }
+                catch (...) { throw runtime_error("Malformed STREET rent token: " + s + " in " + line); }
+            };
+
+            if (rentTokens.size() == 6) {
+                for (int i = 0; i < 6; ++i) rents[i] = parseInt(rentTokens[i]);
+            } else {
+                int ell = -1;
+                for (size_t i = 0; i < rentTokens.size(); ++i) {
+                    if (rentTokens[i] == "..." || rentTokens[i] == "…") { ell = static_cast<int>(i); break; }
+                }
+                if (ell == -1) {
+                    throw runtime_error("Malformed STREET rent table: " + line);
+                }
+                vector<string> leftToks, rightToks;
+                for (int i = 0; i < ell; ++i) leftToks.push_back(rentTokens[i]);
+                for (size_t i = ell + 1; i < rentTokens.size(); ++i) rightToks.push_back(rentTokens[i]);
+
+                if (leftToks.empty() || rightToks.empty()) {
+                    throw runtime_error("Malformed STREET rent table (ellipsis must have numbers on both sides): " + line);
+                }
+
+                for (size_t i = 0; i < leftToks.size(); ++i) {
+                    if (i >= 6) throw runtime_error("Too many rent tokens: " + line);
+                    rents[static_cast<int>(i)] = parseInt(leftToks[i]);
+                }
+                for (size_t i = 0; i < rightToks.size(); ++i) {
+                    if (i >= 6) throw runtime_error("Too many rent tokens: " + line);
+                    rents[6 - static_cast<int>(rightToks.size()) + static_cast<int>(i)] = parseInt(rightToks[i]);
+                }
+
+                int idx = 0;
+                while (idx < 6 && rents[idx] == 0) ++idx;
+                if (idx == 6) throw runtime_error("No rent anchors found: " + line);
+                int cur = idx;
+                while (cur < 6) {
+                    int next = cur + 1;
+                    while (next < 6 && rents[next] == 0) ++next;
+                    if (next >= 6) break;
+                    int leftVal = rents[cur];
+                    int rightVal = rents[next];
+                    int span = next - cur;
+                    for (int k = 1; k < span; ++k) {
+                        double t = static_cast<double>(k) / span;
+                        rents[cur + k] = static_cast<int>(round(leftVal + (rightVal - leftVal) * t));
+                    }
+                    cur = next;
+                }
+
+                for (int i = 0; i < 6; ++i) {
+                    if (rents[i] == 0) throw runtime_error("Malformed STREET rent table after expansion: " + line);
+                }
+            }
 
             ColorGroup cg = stringToColorGroup(warna);
             props.push_back(make_unique<Street>(
@@ -104,20 +168,25 @@ vector<unique_ptr<Property>> ConfigLoader::loadProperties(
 
         } else if (jenis == "RAILROAD") {
             int mortgageValue;
-            ss >> mortgageValue;
+            if (!(ss >> mortgageValue)) {
+                throw runtime_error("Malformed RAILROAD row: " + line);
+            }
             props.push_back(make_unique<Railroad>(
                 code, name, mortgageValue, rrCfg));
 
         } else if (jenis == "UTILITY") {
             int mortgageValue;
-            ss >> mortgageValue;
+            if (!(ss >> mortgageValue)) {
+                throw runtime_error("Malformed UTILITY row: " + line);
+            }
             props.push_back(make_unique<Utility>(
                 code, name, mortgageValue, utilCfg));
+        } else {
+            throw runtime_error("Unknown property type: " + jenis);
         }
     }
     return props;
 }
-
 
 unique_ptr<Board> ConfigLoader::buildBoard(
     vector<unique_ptr<Property>>& properties,
@@ -148,7 +217,7 @@ unique_ptr<Board> ConfigLoader::buildBoard(
     board->addTile(make_unique<FestivalTile>(7));
     board->addTile(propTile(8, "DPK"));
     board->addTile(propTile(9, "BKS"));
-    board->addTile(make_unique<JailTile>(10, special.jailFine));
+    board->addTile(make_unique<JailTile>(10));
     board->addTile(propTile(11, "MGL"));
     board->addTile(propTile(12, "PLN"));
     board->addTile(propTile(13, "SOL"));
@@ -178,6 +247,9 @@ unique_ptr<Board> ConfigLoader::buildBoard(
     board->addTile(propTile(37, "JKT"));
     board->addTile(make_unique<TaxTile>(38, "PBM", "Pajak Barang Mewah", TaxType::PBM, tax.pbmFlat, 0.0f));
     board->addTile(propTile(39, "IKN"));
+    if (board->size() != Board::BOARD_SIZE) {
+        throw runtime_error("Invalid board size: " + to_string(board->size()));
+    }
     return board;
 }
 
@@ -185,4 +257,4 @@ ColorGroup ConfigLoader::parseColor(const string& s) const {
     return stringToColorGroup(s);
 }
 
-} 
+}

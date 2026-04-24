@@ -48,7 +48,10 @@ void Player::goToJail(Game& game) {
 
 void Player::handleJailTurn(Game& game) {
     if (jailTurns_ >= 3) {
-        if (!canAfford(game.specialConfig().jailFine)) { declareBankruptcy(nullptr, game); return; }
+        if (!canAfford(game.specialConfig().jailFine)) { 
+            game.handleBankruptcy(*this, nullptr, game.specialConfig().jailFine); 
+            return; 
+        }
         game.bank().collect(*this, game.specialConfig().jailFine);
         setStatus(PlayerStatus::ACTIVE);
         resetJailTurns();
@@ -56,19 +59,24 @@ void Player::handleJailTurn(Game& game) {
         game.cmdRollDice();
         return;
     }
+    
     auto [d1, d2] = game.dice().roll();
     if (game.callbacks().onDiceRolled) game.callbacks().onDiceRolled(d1, d2);
+    
     game.logger().log(game.currentTurn(), username_, "DADU_PENJARA", "Lempar: " + std::to_string(d1) + "+" + std::to_string(d2));
+    
     if (game.dice().isDouble()) {
         setStatus(PlayerStatus::ACTIVE);
         resetJailTurns();
         game.dice().resetDoubleCount();
         game.logger().log(game.currentTurn(), username_, "KELUAR_PENJARA", "Dadu double!");
+        setHasRolled(true);
         game.movePlayer(*this, d1 + d2);
         game.processLanding(*this, position_, d1 + d2);
     } else {
         incrementJailTurns();
         game.logger().log(game.currentTurn(), username_, "PENJARA", "Gagal keluar (percobaan " + std::to_string(jailTurns_) + "/3)");
+        setHasRolled(true);
     }
 }
 
@@ -77,33 +85,106 @@ void Player::receiveGoSalary(Game& game) {
     game.logger().log(game.currentTurn(), username_, "GAJI", "Melewati/berhenti di GO, menerima M" + std::to_string(game.specialConfig().goSalary));
 }
 
-void Player::declareBankruptcy(Player* creditor, Game& game) {
+void Player::declareBankruptcy(Player* creditor, int required, Game& game) {
     game.logger().log(game.currentTurn(), username_, "BANGKRUT", creditor ? "Kreditor: " + creditor->username() : "Kreditor: Bank");
-    if (game.callbacks().onLiquidation && maxLiquidation() >= 0) {
-        game.callbacks().onLiquidation(*this, 0, creditor);
-        if (!isBankrupt()) return;
+    
+    // Trigger likuidasi HANYA jika pemain punya aset yang bisa dilikuidasi
+    if (game.callbacks().onLiquidation && !properties_.empty()) {
+        game.callbacks().onLiquidation(*this, required, creditor);
+        if (!isBankrupt()) return; // Terselamatkan oleh likuidasi
     }
+    
     setStatus(PlayerStatus::BANKRUPT);
+    std::vector<Property*> assets = properties_;
+    
     if (creditor) {
-        for (auto* prop : properties_) {
+        for (auto* prop : assets) {
             prop->setOwner(creditor);
             creditor->addProperty(prop);
-            game.refreshPropertyCounts(creditor);
         }
-        *creditor += balance_;
-        *this -= balance_;
+        game.refreshPropertyCounts(this);
+        game.refreshPropertyCounts(creditor);
+        
+        creditor->operator+=(balance_);
+        balance_ = 0;
+        
         game.logger().log(game.currentTurn(), username_, "BANGKRUT", "Semua aset dialihkan ke " + creditor->username());
     } else {
-        for (auto* prop : properties_) {
-            if (prop->type() == PropertyType::STREET) static_cast<Street*>(prop)->demolishAll();
+        for (auto* prop : assets) {
+            if (prop->type() == PropertyType::STREET) {
+                static_cast<Street*>(prop)->demolishAll();
+            }
             prop->setOwner(nullptr);
             prop->setStatus(PropertyStatus::BANK);
             game.handleAuction(*prop);
         }
+        game.refreshPropertyCounts(this);
         game.bank().collect(*this, balance_);
         game.logger().log(game.currentTurn(), username_, "BANGKRUT", "Semua properti dikembalikan ke Bank dan dilelang");
     }
+    
     clearProperties();
 }
 
+void Player::useSkillCard(int handIndex, Game& game) {
+    if (hasRolled_) throw std::logic_error("Kartu kemampuan hanya bisa digunakan SEBELUM melempar dadu.");
+    if (usedCardThisTurn_) throw std::logic_error("Penggunaan kartu dibatasi maksimal 1 kali dalam 1 giliran.");
+    if (handIndex < 0 || handIndex >= handSize()) throw std::out_of_range("Indeks kartu tidak valid.");
+    
+    SkillCard* card = hand_[handIndex];
+    removeFromHand(handIndex);
+    
+    card->use(*this, game);
+    
+    setUsedCard(true);
+    game.skillDeck().discard(card);
+    game.logger().log(game.currentTurn(), username_, "KARTU", "Pakai " + card->description());
+}
+
+void Player::dropSkillCard(int handIndex, Game& game) {
+    if (handIndex < 0 || handIndex >= handSize()) throw std::out_of_range("Indeks kartu tidak valid.");
+    
+    SkillCard* card = hand_[handIndex];
+    removeFromHand(handIndex);
+    game.skillDeck().discard(card);
+    game.logger().log(game.currentTurn(), username_, "DROP_KARTU", "Membuang " + card->description());
+}
+
+
+Property* Player::getOwnedProperty(const std::string& code) const {
+    for (auto* prop : properties_) {
+        if (prop->code() == code) return prop;
+    }
+    return nullptr; 
+}
+
+void Player::buildProperty(const std::string& code, Game& game) {
+    Property* prop = getOwnedProperty(code);
+    if (!prop) throw std::invalid_argument("Properti tidak ditemukan atau bukan milikmu.");
+    if (prop->type() != PropertyType::STREET) throw std::invalid_argument("Hanya properti Street yang bisa dibangun.");
+    
+    static_cast<Street*>(prop)->buildHouseOrHotel(*this, game);
+}
+
+void Player::mortgageProperty(const std::string& code, Game& game) {
+    Property* prop = getOwnedProperty(code);
+    if (!prop) throw std::invalid_argument("Properti tidak ditemukan atau bukan milikmu.");
+    
+    prop->performMortgage(*this, game);
+}
+
+void Player::redeemProperty(const std::string& code, Game& game) {
+    Property* prop = getOwnedProperty(code);
+    if (!prop) throw std::invalid_argument("Properti tidak ditemukan atau bukan milikmu.");
+    
+    prop->performRedeem(*this, game);
+}
+
+void Player::applyFestival(const std::string& code, Game& game) {
+    Property* prop = getOwnedProperty(code);
+    if (!prop) throw std::invalid_argument("Properti tidak ditemukan atau bukan milikmu.");
+    if (prop->type() != PropertyType::STREET) throw std::invalid_argument("Hanya properti Street yang dapat mengadakan festival.");
+    
+    static_cast<Street*>(prop)->applyFestivalBoost(*this, game);
+}
 }

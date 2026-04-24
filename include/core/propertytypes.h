@@ -34,7 +34,7 @@ public:
     bool hasHotel()          const { return buildingLevel_ == HOTEL; }
     bool canBuildHouse()     const { return buildingLevel_ < MAX_HOUSES && monopoly_; }
     bool canUpgradeToHotel() const { return buildingLevel_ == MAX_HOUSES && monopoly_; }
- 
+    void performLiquidation(Player& player, Game& game) override;
     // Cost untuk +1 rumah/hotel
     int nextBuildCost() const {
         return (buildingLevel_ < MAX_HOUSES) ? houseUpgradeCost_ : hotelUpgradeCost_;

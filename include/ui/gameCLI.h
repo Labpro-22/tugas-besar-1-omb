@@ -38,7 +38,7 @@ private:
     void        promptPPH();
     void        promptFestival();
     void        promptLiquidation(int required, Player* creditor);
-    void        promptDropCard();
+    void        promptDropCard(Player& player);
     int         promptTeleportIndex();
     Player*     promptLassoTarget(Player& caster);
     string promptDemolitionCode(Player& caster);
@@ -55,4 +55,4 @@ private:
     bool         turnOver_ = false;
 };
 
-} 
+}

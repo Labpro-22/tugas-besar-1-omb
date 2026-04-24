@@ -3,9 +3,21 @@
 #include "core/player.h"
 #include "core/propertytypes.h"
 #include <iostream>
+#include <sstream>
 
 namespace Nimonspoli {
 
+std::string PropertyTile::summary() const {
+    std::ostringstream oss;
+    oss << property_->name() << " (" << property_->code() << ")";
+    if (property_->isOwned() && property_->owner())
+        oss << " [" << property_->owner()->username() << "]";
+    else if (property_->isMortgaged())
+        oss << " [GADAI]";
+    else
+        oss << " [BANK]";
+    return oss.str();
+}
 
 void PropertyTile::onLanded(Player& player, Game& game) {
     if (property_->isBank()) {
@@ -22,7 +34,6 @@ void GoTile::onLanded(Player& player, Game& game) {
 }
 
 void JailTile::onLanded(Player& player, Game& game) {
-    (void)jailFine_; (void)game;
     game.logger().log(game.currentTurn(), player.username(),
                       "MAMPIR", "Hanya mampir di Penjara");
 }
