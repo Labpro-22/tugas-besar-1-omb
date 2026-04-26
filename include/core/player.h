@@ -29,6 +29,15 @@ public:
         return *this;
     }
 
+    friend Player operator+(Player lhs, int amount) {
+        lhs.balance_ += amount;
+        return lhs;
+    }
+    friend Player operator-(Player lhs, int amount) {
+        lhs.balance_ -= amount;
+        return lhs;
+    }
+
     bool operator<(const Player& other) const {
         return this->netWorth() < other.netWorth();
     }
