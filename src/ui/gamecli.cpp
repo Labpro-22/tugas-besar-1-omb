@@ -368,8 +368,8 @@ void GameCLI::cmdBangun() {
 }
 
 void GameCLI::cmdSimpan(const string& args) {
-    if (!game_.currentPlayer().hasRolled()) {
-        printError("Hanya bisa menyimpan setelah melempar dadu.");
+    if (game_.currentPlayer().hasRolled()) {
+        printError("SIMPAN hanya dapat dilakukan di awal giliran, sebelum melempar dadu.");
         return;
     }
     string path = args.empty() ? prompt("Nama file") : args;
