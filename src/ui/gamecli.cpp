@@ -368,6 +368,10 @@ void GameCLI::cmdBangun() {
 }
 
 void GameCLI::cmdSimpan(const string& args) {
+    if (!game_.currentPlayer().hasRolled()) {
+        printError("Hanya bisa menyimpan setelah melempar dadu.");
+        return;
+    }
     string path = args.empty() ? prompt("Nama file") : args;
     {
         ifstream existing(path);
