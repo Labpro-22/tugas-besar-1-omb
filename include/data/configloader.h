@@ -33,6 +33,14 @@ private:
     string configDir_;
     string filePath(const string& filename) const;
     ColorGroup  parseColor(const string& s)       const;
+
+    struct AksiEntry {
+        int idx;          
+        string code;      
+        string name;      
+        string jenis;     
+    };
+    vector<AksiEntry> loadAksiTiles() const;
 };
 
 } 

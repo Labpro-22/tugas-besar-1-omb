@@ -110,17 +110,17 @@ void MoveCard::use(Player& player, Game& game) {
     game.board().getTile(player.position())->onLanded(player, game);
 }
 
-void DiscountCard::use(Player& player, Game& /*game*/) {
+void DiscountCard::use(Player& player, Game& ) {
     player.setDiscountPct(value_);
     std::cout << "DiscountCard aktif! Diskon " << value_ << "% untuk pembelian properti berikutnya.\n";
 }
 
-void ShieldCard::use(Player& player, Game& /*game*/) {
+void ShieldCard::use(Player& player, Game&) {
     player.setShielded(true);
     std::cout << "ShieldCard diaktifkan! Kamu kebal terhadap tagihan atau sanksi selama giliran ini.\n";
 }
 
-void FreeJailCard::use(Player& /*player*/, Game& /*game*/) {
+void FreeJailCard::use(Player&, Game& ) {
     std::cout << "FreeJailCard hanya bisa digunakan saat berada di penjara.\n";
 }
 

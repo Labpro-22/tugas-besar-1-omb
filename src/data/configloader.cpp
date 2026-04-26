@@ -188,6 +188,30 @@ vector<unique_ptr<Property>> ConfigLoader::loadProperties(
     return props;
 }
 
+vector<ConfigLoader::AksiEntry> ConfigLoader::loadAksiTiles() const {
+    ifstream f(filePath("aksi.txt"));
+    if (!f) throw runtime_error("Cannot open aksi.txt");
+
+    vector<AksiEntry> entries;
+    string line;
+    getline(f, line);
+    getline(f, line);
+
+    while (getline(f, line)) {
+        while (!line.empty() && isspace(static_cast<unsigned char>(line.back()))) line.pop_back();
+        if (line.empty() || line[0] == '#') continue;
+        istringstream ss(line);
+
+        int id; string code, name, jenis, warna;
+        if (!(ss >> id >> code >> name >> jenis >> warna)) {
+            throw runtime_error("Malformed aksi row: " + line);
+        }
+        for (auto& c : name) if (c == '_') c = ' ';
+        entries.push_back({id - 1, code, name, jenis});
+    }
+    return entries;
+}
+
 unique_ptr<Board> ConfigLoader::buildBoard(
     vector<unique_ptr<Property>>& properties,
     const SpecialConfig& special,
@@ -195,58 +219,56 @@ unique_ptr<Board> ConfigLoader::buildBoard(
 {
     auto board = make_unique<Board>();
 
-
     for (auto& p : properties)
         board->addProperty(move(p));
     properties.clear();
 
-    // Helper lambda 
-    auto propTile = [&](int idx, const string& code) {
-        Property* p = board->getProperty(code);
-        if (!p) throw runtime_error("Property not found: " + code);
-        return make_unique<PropertyTile>(idx, code, p->name(), p);
+    auto aksiList = loadAksiTiles();
+    map<int, AksiEntry> aksiByIdx;
+    for (auto& a : aksiList) aksiByIdx[a.idx] = a;
+
+    auto makeAksiTile = [&](const AksiEntry& a) -> unique_ptr<Tile> {
+        if (a.code == "GO")  return make_unique<GoTile>(a.idx, special.goSalary);
+        if (a.code == "PEN") return make_unique<JailTile>(a.idx);
+        if (a.code == "BBP") return make_unique<FreeParkingTile>(a.idx);
+        if (a.code == "PPJ") return make_unique<GoToJailTile>(a.idx);
+        if (a.code == "DNU") return make_unique<CommunityTile>(a.idx);
+        if (a.code == "KSP") return make_unique<ChanceTile>(a.idx);
+        if (a.code == "FES") return make_unique<FestivalTile>(a.idx);
+        if (a.code == "PPH") return make_unique<TaxTile>(a.idx, "PPH", a.name, TaxType::PPH, tax.pphFlat, tax.pphPercent);
+        if (a.code == "PBM") return make_unique<TaxTile>(a.idx, "PBM", a.name, TaxType::PBM, tax.pbmFlat, 0.0f);
+        throw runtime_error("Unknown aksi tile code: " + a.code);
     };
 
-    board->addTile(make_unique<GoTile>(0, special.goSalary));
-    board->addTile(propTile(1, "GRT"));
-    board->addTile(make_unique<CommunityTile>(2));
-    board->addTile(propTile(3, "TSK"));
-    board->addTile(make_unique<TaxTile>(4, "PPH", "Pajak Penghasilan", TaxType::PPH, tax.pphFlat, tax.pphPercent));
-    board->addTile(propTile(5, "GBR"));
-    board->addTile(propTile(6, "BGR"));
-    board->addTile(make_unique<FestivalTile>(7));
-    board->addTile(propTile(8, "DPK"));
-    board->addTile(propTile(9, "BKS"));
-    board->addTile(make_unique<JailTile>(10));
-    board->addTile(propTile(11, "MGL"));
-    board->addTile(propTile(12, "PLN"));
-    board->addTile(propTile(13, "SOL"));
-    board->addTile(propTile(14, "YOG"));
-    board->addTile(propTile(15, "STB"));
-    board->addTile(propTile(16, "MAL"));
-    board->addTile(make_unique<CommunityTile>(17));
-    board->addTile(propTile(18, "SMG"));
-    board->addTile(propTile(19, "SBY"));
-    board->addTile(make_unique<FreeParkingTile>(20));
-    board->addTile(propTile(21, "MKS"));
-    board->addTile(make_unique<ChanceTile>(22));
-    board->addTile(propTile(23, "BLP"));
-    board->addTile(propTile(24, "MND"));
-    board->addTile(propTile(25, "TUG"));
-    board->addTile(propTile(26, "PLB"));
-    board->addTile(propTile(27, "PKB"));
-    board->addTile(propTile(28, "PAM"));
-    board->addTile(propTile(29, "MED"));
-    board->addTile(make_unique<GoToJailTile>(30));
-    board->addTile(propTile(31, "BDG"));
-    board->addTile(propTile(32, "DEN"));
-    board->addTile(make_unique<FestivalTile>(33));
-    board->addTile(propTile(34, "MTR"));
-    board->addTile(propTile(35, "GUB"));
-    board->addTile(make_unique<ChanceTile>(36));
-    board->addTile(propTile(37, "JKT"));
-    board->addTile(make_unique<TaxTile>(38, "PBM", "Pajak Barang Mewah", TaxType::PBM, tax.pbmFlat, 0.0f));
-    board->addTile(propTile(39, "IKN"));
+    ifstream pf(filePath("property.txt"));
+    if (!pf) throw runtime_error("Cannot open property.txt");
+    string pline;
+    getline(pf, pline);
+    map<int, string> codeByIdx;
+    while (getline(pf, pline)) {
+        while (!pline.empty() && isspace(static_cast<unsigned char>(pline.back()))) pline.pop_back();
+        if (pline.empty() || pline[0] == '#') continue;
+        istringstream pss(pline);
+        int id; string code;
+        if (!(pss >> id >> code)) continue;
+        codeByIdx[id - 1] = code;
+    }
+
+    for (int idx = 0; idx < Board::BOARD_SIZE; ++idx) {
+        auto itA = aksiByIdx.find(idx);
+        if (itA != aksiByIdx.end()) {
+            board->addTile(makeAksiTile(itA->second));
+            continue;
+        }
+        auto itP = codeByIdx.find(idx);
+        if (itP == codeByIdx.end()) {
+            throw runtime_error("Tile index " + to_string(idx) + " tidak ada di aksi.txt maupun property.txt");
+        }
+        Property* p = board->getProperty(itP->second);
+        if (!p) throw runtime_error("Property not found: " + itP->second);
+        board->addTile(make_unique<PropertyTile>(idx, p->code(), p->name(), p));
+    }
+
     if (board->size() != Board::BOARD_SIZE) {
         throw runtime_error("Invalid board size: " + to_string(board->size()));
     }
