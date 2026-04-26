@@ -1,6 +1,7 @@
 #include "core/transactionlogger.h"
 #include <iostream>
 #include <algorithm>
+#include <iomanip>
  
 namespace Nimonspoli {
  
@@ -19,12 +20,12 @@ void TransactionLogger::print(int n) {
         std::cout << "=== Log Transaksi (" << n << " Terakhir) ===\n";
  
     for (int i = start; i < (int)entries_.size(); ++i) {
-        const auto& e = entries_[i];
-        std::cout << "[Turn " << e.turn << "] "
-                  << e.username << " | "
-                  << e.action   << " | "
-                  << e.detail   << "\n";
+    const auto& e = entries_[i];
+    std::cout << "[Turn " << std::setw(3) << e.turn << "] "
+              << std::left << std::setw(12) << e.username << " | "
+              << std::left << std::setw(18) << e.action   << " | "
+              << e.detail   << "\n";
     }
 }
  
-} // namespace Nimonspoli
+} 
