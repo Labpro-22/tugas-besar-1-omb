@@ -151,8 +151,8 @@ g++ -Wall -Wextra -std=c++17 -I include (Get-ChildItem -Path src -Recurse -Filte
 
 | NIM | Nama |
 |-----|------|
-| — | — |
-| — | — |
-| — | — |
-| — | — |
-| — | — |
+| 13524009 | Mikhael Benrael Tampubolon |
+| 13524021 | Natanael I. Manurung |
+| 13524085 | Ariel Cornelius Sitorus |
+| 13524107 | Rava Khoman Tuah Saragih |
+| 13622076 | Ziyan Agil Nur Ramadhan |
