@@ -335,17 +335,26 @@ void BoardPrinter::printDeed(const string& code) const {
         col = groupColor(s->colorGroup());
     }
 
+    string titleStr = "[" + colorGroupToString(prop->type() == PropertyType::STREET ? static_cast<Street*>(prop)->colorGroup() : ColorGroup::DEFAULT) + "] " + prop->name() + " (" + prop->code() + ")";
+    
+    int innerWidth = 30;
+    int padding = (innerWidth - (int)titleStr.length()) / 2;
+    if (padding < 0) padding = 0;
+    
+    string centeredTitle = string(padding, ' ') + titleStr;
+    if (centeredTitle.length() < innerWidth) {
+        centeredTitle += string(innerWidth - centeredTitle.length(), ' ');
+    }
+
     cout << col
-              << "+================================+\n"
-              << "|       AKTA KEPEMILIKAN         |\n"
-              << "| " << left << setw(30)
-              << ("[" + colorGroupToString(prop->type() == PropertyType::STREET ? static_cast<Street*>(prop)->colorGroup() : ColorGroup::DEFAULT) + "] " + prop->name() + " (" + prop->code() + ")")
-              << " |\n"
-              << "+================================+\n"
-              << Color::RESET;
+         << "+================================+\n"
+         << "|       AKTA KEPEMILIKAN         |\n"
+         << "| " << centeredTitle << " |\n"
+         << "+================================+\n"
+         << Color::RESET;
 
     auto row = [](const string& label, const string& val) {
-        cout << "| " << left << setw(20) << label << right << setw(9) << val << " |\n";
+        cout << "| " << left << setw(17) << label << " : " << left << setw(10) << val << " |\n";
     };
 
     row("Harga Beli",  "M" + to_string(prop->buyPrice()));
@@ -359,8 +368,8 @@ void BoardPrinter::printDeed(const string& code) const {
         row("Harga Hotel",  "M" + to_string(s->hotelUpgradeCost()));
         if (s->festival().isActive()) {
             cout << "+--------------------------------+\n";
-            row("Festival aktif x" + to_string(s->festival().multiplier()),
-                to_string(s->festival().duration()) + " giliran");
+            row("Festival x" + to_string(s->festival().multiplier()),
+                to_string(s->festival().duration()) + " turn");
         }
     } else if (prop->type() == PropertyType::RAILROAD) {
         row("Sewa (1 RR)", "M25");
@@ -377,7 +386,13 @@ void BoardPrinter::printDeed(const string& code) const {
     if (prop->isBank())       statusStr = "BANK";
     else if (prop->isMortgaged()) statusStr = "MORTGAGED [M]";
     else statusStr = "OWNED (" + prop->owner()->username() + ")";
-    row("Status", statusStr);
+    
+    string statusLine = "Status : " + statusStr;
+    if (statusLine.length() > innerWidth) {
+        statusLine = statusLine.substr(0, innerWidth - 3) + "...";
+    }
+    
+    cout << "| " << left << setw(innerWidth) << statusLine << " |\n";
     cout << "+================================+\n";
 }
 
