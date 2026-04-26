@@ -12,13 +12,15 @@ namespace Nimonspoli {
 
 namespace {
 
-struct SavedCard {
+class SavedCard {
+    public:
     string type;
     int value = 0;
     int dur = 0;
 };
 
-struct SavedPlayer {
+class SavedPlayer {
+    public:
     string username;
     int balance = 0;
     string posCode;
