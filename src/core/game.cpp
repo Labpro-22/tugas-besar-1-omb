@@ -49,6 +49,7 @@ void Game::initCardDecks() {
     for (int i = 0; i < 4; ++i) skillDeck_.addCard(make_unique<MoveCard>(stepDist(rng)));
     for (int i = 0; i < 3; ++i) skillDeck_.addCard(make_unique<DiscountCard>(pctDist(rng)));
     for (int i = 0; i < 2; ++i) skillDeck_.addCard(make_unique<ShieldCard>());
+    for (int i = 0; i < 1; ++i) skillDeck_.addCard(make_unique<FreeJailCard>());
     for (int i = 0; i < 2; ++i) skillDeck_.addCard(make_unique<TeleportCard>());
     for (int i = 0; i < 2; ++i) skillDeck_.addCard(make_unique<LassoCard>());
     for (int i = 0; i < 2; ++i) skillDeck_.addCard(make_unique<DemolitionCard>());

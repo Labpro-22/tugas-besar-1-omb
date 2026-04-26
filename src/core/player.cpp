@@ -138,7 +138,8 @@ void Player::useSkillCard(int handIndex, Game& game) {
     SkillCard* card = hand_[handIndex];
 
     if (isJailed()) {
-        if (card->skillType() != SkillCardType::SHIELD) {
+        if (card->skillType() != SkillCardType::SHIELD &&
+            card->skillType() != SkillCardType::FREE_JAIL) {
             throw std::logic_error("Kartu kemampuan ini tidak bisa digunakan, Opsi: LEMPAR_DADU | BAYAR_DENDA");
         }
         removeFromHand(handIndex);
@@ -146,7 +147,10 @@ void Player::useSkillCard(int handIndex, Game& game) {
         resetJailTurns();
         setUsedCard(true);
         game.skillDeck().discard(card);
-        TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Menggunakan kartu bebas penjara");
+        std::string cardName = (card->skillType() == SkillCardType::FREE_JAIL)
+            ? "kartu Bebas dari Penjara" : "ShieldCard";
+        std::cout << "Menggunakan " << cardName << "! Kamu bebas dari penjara.\n";
+        TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Menggunakan " + cardName);
         return;
     }
 

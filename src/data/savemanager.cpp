@@ -36,6 +36,8 @@ unique_ptr<SkillCard> makeSkillCard(const string& type, int value = 0, int dur =
         card = make_unique<DiscountCard>(value);
     } else if (type == "ShieldCard") {
         card = make_unique<ShieldCard>();
+    } else if (type == "FreeJailCard") {
+        card = make_unique<FreeJailCard>();
     } else if (type == "TeleportCard") {
         card = make_unique<TeleportCard>();
     } else if (type == "LassoCard") {
@@ -89,6 +91,7 @@ string SaveManager::serializePlayers(const Game& game) {
                 case SkillCardType::MOVE:        type = "MoveCard";        break;
                 case SkillCardType::DISCOUNT:    type = "DiscountCard";    break;
                 case SkillCardType::SHIELD:      type = "ShieldCard";      break;
+                case SkillCardType::FREE_JAIL:   type = "FreeJailCard";    break;
                 case SkillCardType::TELEPORT:    type = "TeleportCard";    break;
                 case SkillCardType::LASSO:       type = "LassoCard";       break;
                 case SkillCardType::DEMOLITION:  type = "DemolitionCard";  break;
@@ -153,6 +156,7 @@ string SaveManager::serializeDeck(const Game& game) {
             case SkillCardType::MOVE:       ss << "MoveCard\n";       break;
             case SkillCardType::DISCOUNT:   ss << "DiscountCard\n";   break;
             case SkillCardType::SHIELD:     ss << "ShieldCard\n";     break;
+            case SkillCardType::FREE_JAIL:  ss << "FreeJailCard\n";   break;
             case SkillCardType::TELEPORT:   ss << "TeleportCard\n";   break;
             case SkillCardType::LASSO:      ss << "LassoCard\n";      break;
             case SkillCardType::DEMOLITION: ss << "DemolitionCard\n"; break;

@@ -124,6 +124,14 @@ public:
     void use(Player& player, Game& game) override;
 };
 
+class FreeJailCard : public SkillCard {
+public:
+    FreeJailCard()
+        : SkillCard("Bebas dari Penjara. Gunakan untuk keluar penjara tanpa membayar denda.",
+                    SkillCardType::FREE_JAIL) {}
+    void use(Player& player, Game& game) override;
+};
+
 class TeleportCard : public SkillCard {
 public:
     TeleportCard()

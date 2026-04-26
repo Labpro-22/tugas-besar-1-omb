@@ -411,6 +411,7 @@ void GameCLI::cmdGunakanKemampuan() {
             case SkillCardType::MOVE: return "MoveCard";
             case SkillCardType::DISCOUNT: return "DiscountCard";
             case SkillCardType::SHIELD: return "ShieldCard";
+            case SkillCardType::FREE_JAIL: return "FreeJailCard";
             case SkillCardType::TELEPORT: return "TeleportCard";
             case SkillCardType::LASSO: return "LassoCard";
             case SkillCardType::DEMOLITION: return "DemolitionCard";
@@ -679,6 +680,7 @@ void GameCLI::promptDropCard(Player& player) {
             case SkillCardType::MOVE: return "MoveCard";
             case SkillCardType::DISCOUNT: return "DiscountCard";
             case SkillCardType::SHIELD: return "ShieldCard";
+            case SkillCardType::FREE_JAIL: return "FreeJailCard";
             case SkillCardType::TELEPORT: return "TeleportCard";
             case SkillCardType::LASSO: return "LassoCard";
             case SkillCardType::DEMOLITION: return "DemolitionCard";

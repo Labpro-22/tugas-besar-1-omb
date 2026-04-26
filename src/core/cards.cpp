@@ -120,6 +120,10 @@ void ShieldCard::use(Player& player, Game& /*game*/) {
     std::cout << "ShieldCard diaktifkan! Kamu kebal terhadap tagihan atau sanksi selama giliran ini.\n";
 }
 
+void FreeJailCard::use(Player& /*player*/, Game& /*game*/) {
+    std::cout << "FreeJailCard hanya bisa digunakan saat berada di penjara.\n";
+}
+
 void TeleportCard::use(Player& player, Game& game) {
     int target = -1;
     if (game.callbacks().onTeleport)
