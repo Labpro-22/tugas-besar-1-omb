@@ -43,7 +43,7 @@ void Player::goToJail(Game& game) {
     setStatus(PlayerStatus::JAILED);
     resetJailTurns();
     game.dice().resetDoubleCount();
-    game.logger().log(game.currentTurn(), username_, "PENJARA", "Masuk penjara");
+    TransactionLogger::log(game.currentTurn(), username_, "PENJARA", "Masuk penjara");
 }
 
 void Player::handleJailTurn(Game& game) {
@@ -55,7 +55,7 @@ void Player::handleJailTurn(Game& game) {
         game.bank().collect(*this, game.specialConfig().jailFine);
         setStatus(PlayerStatus::ACTIVE);
         resetJailTurns();
-        game.logger().log(game.currentTurn(), username_, "KELUAR_PENJARA", "Bayar denda M" + std::to_string(game.specialConfig().jailFine) + " (wajib)");
+        TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Bayar denda M" + std::to_string(game.specialConfig().jailFine) + " (wajib)");
         game.cmdRollDice();
         return;
     }
@@ -63,30 +63,30 @@ void Player::handleJailTurn(Game& game) {
     auto [d1, d2] = game.dice().roll();
     if (game.callbacks().onDiceRolled) game.callbacks().onDiceRolled(d1, d2);
     
-    game.logger().log(game.currentTurn(), username_, "DADU_PENJARA", "Lempar: " + std::to_string(d1) + "+" + std::to_string(d2));
+    TransactionLogger::log(game.currentTurn(), username_, "DADU_PENJARA", "Lempar: " + std::to_string(d1) + "+" + std::to_string(d2));
     
     if (game.dice().isDouble()) {
         setStatus(PlayerStatus::ACTIVE);
         resetJailTurns();
         game.dice().resetDoubleCount();
-        game.logger().log(game.currentTurn(), username_, "KELUAR_PENJARA", "Dadu double!");
+        TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Dadu double!");
         setHasRolled(true);
         game.movePlayer(*this, d1 + d2);
         game.processLanding(*this, position_, d1 + d2);
     } else {
         incrementJailTurns();
-        game.logger().log(game.currentTurn(), username_, "PENJARA", "Gagal keluar (percobaan " + std::to_string(jailTurns_) + "/3)");
+        TransactionLogger::log(game.currentTurn(), username_, "PENJARA", "Gagal keluar (percobaan " + std::to_string(jailTurns_) + "/3)");
         setHasRolled(true);
     }
 }
 
 void Player::receiveGoSalary(Game& game) {
     game.bank().pay(*this, game.specialConfig().goSalary);
-    game.logger().log(game.currentTurn(), username_, "GAJI", "Melewati/berhenti di GO, menerima M" + std::to_string(game.specialConfig().goSalary));
+    TransactionLogger::log(game.currentTurn(), username_, "GAJI", "Melewati/berhenti di GO, menerima M" + std::to_string(game.specialConfig().goSalary));
 }
 
 void Player::declareBankruptcy(Player* creditor, int required, Game& game) {
-    game.logger().log(game.currentTurn(), username_, "BANGKRUT", creditor ? "Kreditor: " + creditor->username() : "Kreditor: Bank");
+    TransactionLogger::log(game.currentTurn(), username_, "BANGKRUT", creditor ? "Kreditor: " + creditor->username() : "Kreditor: Bank");
     
     // Trigger likuidasi HANYA jika pemain punya aset yang bisa dilikuidasi
     if (game.callbacks().onLiquidation && !properties_.empty()) {
@@ -108,7 +108,7 @@ void Player::declareBankruptcy(Player* creditor, int required, Game& game) {
         creditor->operator+=(balance_);
         balance_ = 0;
         
-        game.logger().log(game.currentTurn(), username_, "BANGKRUT", "Semua aset dialihkan ke " + creditor->username());
+        TransactionLogger::log(game.currentTurn(), username_, "BANGKRUT", "Semua aset dialihkan ke " + creditor->username());
     } else {
         for (auto* prop : assets) {
             if (prop->type() == PropertyType::STREET) {
@@ -120,7 +120,7 @@ void Player::declareBankruptcy(Player* creditor, int required, Game& game) {
         }
         game.refreshPropertyCounts(this);
         game.bank().collect(*this, balance_);
-        game.logger().log(game.currentTurn(), username_, "BANGKRUT", "Semua properti dikembalikan ke Bank dan dilelang");
+        TransactionLogger::log(game.currentTurn(), username_, "BANGKRUT", "Semua properti dikembalikan ke Bank dan dilelang");
     }
     
     clearProperties();
@@ -142,7 +142,7 @@ void Player::useSkillCard(int handIndex, Game& game) {
         resetJailTurns();
         setUsedCard(true);
         game.skillDeck().discard(card);
-        game.logger().log(game.currentTurn(), username_, "KELUAR_PENJARA", "Menggunakan kartu bebas penjara");
+        TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Menggunakan kartu bebas penjara");
         return;
     }
 
@@ -152,7 +152,7 @@ void Player::useSkillCard(int handIndex, Game& game) {
     
     setUsedCard(true);
     game.skillDeck().discard(card);
-    game.logger().log(game.currentTurn(), username_, "KARTU", "Pakai " + card->description());
+    TransactionLogger::log(game.currentTurn(), username_, "KARTU", "Pakai " + card->description());
 }
 
 void Player::dropSkillCard(int handIndex, Game& game) {
@@ -161,7 +161,7 @@ void Player::dropSkillCard(int handIndex, Game& game) {
     SkillCard* card = hand_[handIndex];
     removeFromHand(handIndex);
     game.skillDeck().discard(card);
-    game.logger().log(game.currentTurn(), username_, "DROP_KARTU", "Membuang " + card->description());
+    TransactionLogger::log(game.currentTurn(), username_, "DROP_KARTU", "Membuang " + card->description());
 }
 
 
@@ -201,4 +201,82 @@ void Player::applyFestival(const std::string& code, Game& game) {
     
     static_cast<Street*>(prop)->applyFestivalBoost(*this, game);
 }
+
+void Player::move(int steps, bool collectGoSalary, Game& game) {
+    int oldPos = position_;
+    int newPos = game.board().advance(oldPos, steps);
+    if (collectGoSalary && newPos < oldPos) receiveGoSalary(game);
+    setPosition(newPos);
+    TransactionLogger::log(game.currentTurn(), username_, "GERAK", "Maju " + std::to_string(steps) + " petak -> " + game.board().getTile(newPos)->name());
+}
+
+void Player::teleport(int targetIndex, Game& game) {
+    setPosition(targetIndex);
+    TransactionLogger::log(game.currentTurn(), username_, "TELEPORT", "Pindah ke " + game.board().getTile(targetIndex)->name());
+}
+
+void Player::rollDice(Game& game) {
+    if (hasRolled_ && !game.dice().isDouble()) throw std::logic_error("Kamu sudah melempar dadu pada giliran ini.");
+    if (isJailed()) { handleJailTurn(game); return; }
+    
+    auto [d1, d2] = game.dice().roll();
+    if (game.callbacks().onDiceRolled) game.callbacks().onDiceRolled(d1, d2);
+    TransactionLogger::log(game.currentTurn(), username_, "DADU", "Lempar: " + std::to_string(d1) + "+" + std::to_string(d2) + "=" + std::to_string(d1+d2));
+    
+    if (game.dice().doubleCount() == 3) {
+        goToJail(game);
+        return;
+    }
+    
+    setHasRolled(true);
+    move(d1 + d2, true, game);
+    game.processLanding(*this, position_, d1 + d2);
+}
+
+void Player::setDice(int d1, int d2, Game& game) {
+    if (hasRolled_ && !game.dice().isDouble()) throw std::logic_error("Kamu sudah melempar dadu pada giliran ini.");
+    if (isJailed()) {
+        if (jailTurns_ >= 3) {
+            if (!canAfford(game.specialConfig().jailFine)) { 
+                game.handleBankruptcy(*this, nullptr, game.specialConfig().jailFine); 
+                return; 
+            }
+            game.bank().collect(*this, game.specialConfig().jailFine);
+            setStatus(PlayerStatus::ACTIVE);
+            resetJailTurns();
+            TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Bayar denda M" + std::to_string(game.specialConfig().jailFine) + " (wajib)");
+        }
+        game.dice().setRoll(d1, d2);
+        TransactionLogger::log(game.currentTurn(), username_, "DADU_PENJARA", "Atur manual: " + std::to_string(d1) + "+" + std::to_string(d2));
+        
+        if (game.dice().isDouble()) {
+            setStatus(PlayerStatus::ACTIVE);
+            resetJailTurns();
+            game.dice().resetDoubleCount();
+            TransactionLogger::log(game.currentTurn(), username_, "KELUAR_PENJARA", "Dadu double!");
+            setHasRolled(true);
+            move(d1 + d2, true, game);
+            game.processLanding(*this, position_, d1 + d2);
+        } else {
+            if (isJailed()) incrementJailTurns();
+            TransactionLogger::log(game.currentTurn(), username_, "PENJARA", "Gagal keluar (percobaan " + std::to_string(jailTurns_) + "/3)");
+            setHasRolled(true);
+        }
+        return;
+    }
+    
+    game.dice().setRoll(d1, d2);
+    if (game.callbacks().onDiceRolled) game.callbacks().onDiceRolled(d1, d2);
+    TransactionLogger::log(game.currentTurn(), username_, "DADU", "Atur manual: " + std::to_string(d1) + "+" + std::to_string(d2) + "=" + std::to_string(d1+d2));
+    
+    if (game.dice().doubleCount() == 3) {
+        goToJail(game);
+        return;
+    }
+    
+    setHasRolled(true);
+    move(d1 + d2, true, game);
+    game.processLanding(*this, position_, d1 + d2);
+}
+
 }

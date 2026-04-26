@@ -97,6 +97,10 @@ public:
     void useSkillCard(int handIndex, Game& game);
     void dropSkillCard(int handIndex, Game& game);
     // Delegated logic dari Game
+    void move(int steps, bool collectGoSalary, Game& game);
+    void teleport(int targetIndex, Game& game);
+    void rollDice(Game& game);
+    void setDice(int d1, int d2, Game& game);
     void goToJail(Game& game);
     void handleJailTurn(Game& game);
     void receiveGoSalary(Game& game);
