@@ -13,13 +13,13 @@ Nimonspoli adalah permainan papan (board game) bertema monopoli yang memungkinka
 - **Pembangunan rumah & hotel** dengan aturan pemerataan color group
 - **Sistem lelang** otomatis saat pemain menolak/tidak mampu membeli
 - **Pajak** (PPH dengan opsi flat/persentase, PBM flat)
-- **Festival** — melipatgandakan sewa properti hingga 8x
-- **6 jenis Kartu Kemampuan Spesial**: MoveCard, DiscountCard, ShieldCard, TeleportCard, LassoCard, DemolitionCard
+- **Festival**: melipatgandakan sewa properti hingga 8x
+- **7 jenis Kartu Kemampuan Spesial**: MoveCard, DiscountCard, ShieldCard, FreeJailCard, TeleportCard, LassoCard, DemolitionCard
 - **Kartu Kesempatan & Dana Umum**
 - **Sistem Gadai & Tebus**
 - **Mekanisme kebangkrutan & likuidasi aset**
 - **Save/Load** ke file teks terstruktur
-- **Transaction Logger** — mencatat semua kejadian dalam permainan
+- **Transaction Logger**: mencatat semua kejadian dalam permainan
 - **Papan berwarna** dengan ANSI color codes
 
 ---
@@ -28,14 +28,16 @@ Nimonspoli adalah permainan papan (board game) bertema monopoli yang memungkinka
 ```
 tugas-besar-1-omb/
 ├── config/                  # File konfigurasi permainan
+│   ├── aksi.txt
+│   ├── misc.txt
 │   ├── property.txt
 │   ├── railroad.txt
-│   ├── utility.txt
-│   ├── tax.txt
 │   ├── special.txt
-│   └── misc.txt
+│   ├── tax.txt
+│   └── utility.txt
 ├── include/                 # Header files
 │   ├── core/                # Game logic layer
+│   │   ├── auctionmanager.h
 │   │   ├── bank.h
 │   │   ├── board.h
 │   │   ├── carddeck.h       # Generic class CardDeck<T>
@@ -58,9 +60,12 @@ tugas-besar-1-omb/
 │       └── gameCLI.h
 ├── src/                     # Source files
 │   ├── core/
+│   │   ├── auctionmanager.cpp
 │   │   ├── board.cpp
 │   │   ├── cards.cpp
+│   │   ├── game.cpp
 │   │   ├── player.cpp
+│   │   ├── property.cpp
 │   │   ├── tiles.cpp
 │   │   └── transactionlogger.cpp
 │   ├── data/
