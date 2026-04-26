@@ -11,6 +11,7 @@
 #include <fstream>
 #include <map>
 #include <set>
+#include "core/auctionmanager.h"
 using namespace std;
 namespace Nimonspoli {
 
@@ -98,7 +99,7 @@ void GameCLI::setupNewGame() {
     game_.randomizeTurnOrder();
     game_.initCardDecks();
     cout << "Permainan dimulai!\n";
-    game_.logger().log(0, "SISTEM", "MULAI", to_string(n) + " pemain");
+    TransactionLogger::log(0, "SISTEM", "MULAI", to_string(n) + " pemain");
 }
 
 void GameCLI::setupLoadGame() {
@@ -186,7 +187,7 @@ void GameCLI::dispatch(const string& line) {
         game_.bank().collect(p, fine);
         p.setStatus(PlayerStatus::ACTIVE);
         p.resetJailTurns();
-        game_.logger().log(game_.currentTurn(), p.username(), "KELUAR_PENJARA", "Bayar denda M" + to_string(fine));
+        TransactionLogger::log(game_.currentTurn(), p.username(), "KELUAR_PENJARA", "Bayar denda M" + to_string(fine));
         cout << "Denda dibayar. Kamu bebas! Saldo: M" << p.balance() << "\n";
     }
     else if (cmd == "SELESAI" || cmd == "END_TURN") {
@@ -376,7 +377,7 @@ void GameCLI::cmdSimpan(const string& args) {
     }
     try {
         SaveManager::save(game_, path);
-        game_.logger().log(game_.currentTurn(), game_.currentPlayer().username(), "SIMPAN", "Disimpan ke " + path);
+        TransactionLogger::log(game_.currentTurn(), game_.currentPlayer().username(), "SIMPAN", "Disimpan ke " + path);
         cout << "Permainan berhasil disimpan ke: " << path << "\n";
     } catch (const exception& e) { printError(e.what()); }
 }
@@ -444,19 +445,22 @@ void GameCLI::runAuction(Property& prop) {
     auto active = game_.activePlayers();
     Player* trigger = &game_.currentPlayer();
     vector<Player*> order = game_.board().auctionOrder(trigger, active);
+    int needed = game_.board().auctionPassesNeeded(order);
+
+    AuctionManager am(prop, order, needed, game_);
 
     cout << "\nProperti " << prop.name() << " (" << prop.code() << ") akan dilelang!\n" << "Urutan lelang dimulai dari pemain setelah " << trigger->username() << ".\n";
 
-    int highBid   = 0;
-    Player* winner = nullptr;
-    int passCount  = 0;
-    int needed     = game_.board().auctionPassesNeeded(order);
-    size_t idx = 0;
+    while (!am.isFinished()) {
+        if (am.isFailed()) {
+            cout << "Minimal satu pemain harus melakukan bid. " << order[0]->username() << " wajib bid.\n";
+            am.resetForRetry();
+            continue;
+        }
 
-    while (true) {
-        Player* cur = order[idx % order.size()];
+        Player* cur = am.currentPlayer();
         cout << "Giliran: " << cur->username() << "\n";
-        if (winner) cout << "Penawaran tertinggi: M" << highBid << " (" << winner->username() << ")\n";
+        if (am.winner()) cout << "Penawaran tertinggi: M" << am.highBid() << " (" << am.winner()->username() << ")\n";
         else cout << "Penawaran tertinggi: belum ada\n";
 
         cout << "Aksi (PASS / BID <jumlah>): ";
@@ -466,8 +470,7 @@ void GameCLI::runAuction(Property& prop) {
         transform(action.begin(), action.end(), action.begin(), ::toupper);
 
         if (action == "PASS") {
-            ++passCount;
-            game_.logger().log(game_.currentTurn(), cur->username(), "LELANG", "PASS");
+            am.processPass();
         } else if (action == "BID") {
             string rawAmount;
             ss >> rawAmount;
@@ -489,38 +492,26 @@ void GameCLI::runAuction(Property& prop) {
                 cout << "Masukkan BID dengan angka valid, contoh: BID 100\n";
                 continue;
             }
-            if (amount <= highBid) {cout << "Penawaran harus lebih dari M" << highBid << "\n"; continue;}
+            if (amount <= am.highBid()) {cout << "Penawaran harus lebih dari M" << am.highBid() << "\n"; continue;}
             if (!cur->canAfford(amount)) {cout << "Uang tidak cukup (saldo: M" << cur->balance() << ")\n"; continue;}
-            highBid   = amount;
-            winner    = cur;
-            passCount = 0;
-            game_.logger().log(game_.currentTurn(), cur->username(), "LELANG", "BID M" + to_string(amount));
-            cout << "Penawaran tertinggi: M" << highBid << " (" << winner->username() << ")\n";
+            
+            am.processBid(amount);
+            if (am.winner()) cout << "Penawaran tertinggi: M" << am.highBid() << " (" << am.winner()->username() << ")\n";
         } else {
             cout << "Masukkan PASS atau BID <jumlah>\n";
             continue;
         }
+    }
 
-        if (passCount >= needed && winner != nullptr) {
-            cout << "\nLelang selesai!\n"
-                      << "Pemenang: " << winner->username()
-                      << " | Harga akhir: M" << highBid << "\n"
-                      << "Properti " << prop.name() << " kini dimiliki "
-                      << winner->username() << ".\n";
-            game_.finishAuction(*winner, prop, highBid);
-            return;
-        }
-        if (passCount >= (int)order.size() && winner == nullptr) {
-            cout << "Minimal satu pemain harus melakukan bid. " << order[0]->username() << " wajib bid.\n";
-            idx  = 0;
-            passCount = 0;
-            continue;
-        }
-
-        ++idx;
+    if (am.winner()) {
+        cout << "\nLelang selesai!\n"
+             << "Pemenang: " << am.winner()->username()
+             << " | Harga akhir: M" << am.highBid() << "\n"
+             << "Properti " << prop.name() << " kini dimiliki "
+             << am.winner()->username() << ".\n";
+        am.finalizeAuction(game_);
     }
 }
-
 void GameCLI::promptPPH() {
     Player& player = game_.currentPlayer();
     cout << "\nKamu mendarat di Pajak Penghasilan (PPH)!\n"
@@ -671,7 +662,7 @@ void GameCLI::promptDropCard(Player& player) {
     SkillCard* card = player.hand()[choice - 1];
     player.removeFromHand(choice - 1);
     game_.skillDeck().discard(card);
-    game_.logger().log(game_.currentTurn(), player.username(), "DROP_KARTU", "Membuang " + card->description());
+    TransactionLogger::log(game_.currentTurn(), player.username(), "DROP_KARTU", "Membuang " + card->description());
     cout << "Kartu dibuang. Sisa: " << player.handSize() << " kartu.\n";
 }
 

@@ -163,7 +163,7 @@ string SaveManager::serializeDeck(const Game& game) {
 
 string SaveManager::serializeLog(const Game& game) {
     ostringstream ss;
-    const auto& entries = game.logger().entries();
+    const auto& entries = TransactionLogger::entries();
     ss << entries.size() << "\n";
     for (auto& e : entries)
         ss << e.turn << " " << e.username << " " << e.action << " " << e.detail << "\n";
@@ -192,7 +192,7 @@ bool SaveManager::load(Game& game, const string& path) {
         game.lastDiceTotal_ = 0;
         game.lastJailByTripleDouble_ = false;
         game.dice_.resetDoubleCount();
-        game.logger_.loadEntries({});
+        TransactionLogger::loadEntries({});
         game.chanceDeck_ = CardDeck<ChanceCard>();
         game.communityDeck_ = CardDeck<CommunityCard>();
         game.skillDeck_ = CardDeck<SkillCard>();
@@ -397,7 +397,7 @@ void SaveManager::deserializeLog(Game& game, istream& in) {
             e.detail = e.detail.substr(1);
         entries.push_back(e);
     }
-    game.logger().loadEntries(entries);
+    TransactionLogger::loadEntries(entries);
 }
 
 } 

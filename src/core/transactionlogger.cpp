@@ -4,12 +4,14 @@
  
 namespace Nimonspoli {
  
+std::vector<LogEntry> TransactionLogger::entries_;
+
 void TransactionLogger::log(int turn, const std::string& username,
                             const std::string& action, const std::string& detail) {
     entries_.push_back({turn, username, action, detail});
 }
  
-void TransactionLogger::print(int n) const {
+void TransactionLogger::print(int n) {
     int start = (n == 0) ? 0 : std::max(0, (int)entries_.size() - n);
     if (n == 0)
         std::cout << "=== Log Transaksi Penuh ===\n";

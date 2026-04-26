@@ -14,15 +14,15 @@ public:
 
 class TransactionLogger {
 public:
-    void log(int turn, const std::string& username,
+    static void log(int turn, const std::string& username,
              const std::string& action, const std::string& detail);
-    void print(int n = 0) const;
+    static void print(int n = 0);
 
-    const std::vector<LogEntry>& entries() const { return entries_; }
-    void loadEntries(const std::vector<LogEntry>& entries) { entries_ = entries; }
+    static const std::vector<LogEntry>& entries() { return entries_; }
+    static void loadEntries(const std::vector<LogEntry>& entries) { entries_ = entries; }
 
 private:
-    std::vector<LogEntry> entries_;
+    static std::vector<LogEntry> entries_;
 };
 
 } 

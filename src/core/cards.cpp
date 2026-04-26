@@ -48,7 +48,7 @@ void CommunityBirthday::execute(Player& player, Game& game) {
             game.handleBankruptcy(*other, &player, 100);
         } else {
             game.bank().transfer(*other, player, 100);
-            game.logger().log(game.currentTurn(), other->username(),
+            TransactionLogger::log(game.currentTurn(), other->username(),
                               "DANA_UMUM", "Bayar M100 ulang tahun ke " + player.username());
         }
     }
@@ -62,7 +62,7 @@ void CommunityDoctor::execute(Player& player, Game& game) {
         game.handleBankruptcy(player, nullptr, 700);
     } else {
         game.bank().collect(player, 700);
-        game.logger().log(game.currentTurn(), player.username(),
+        TransactionLogger::log(game.currentTurn(), player.username(),
                           "DANA_UMUM", "Biaya dokter M700");
     }
 }
@@ -79,7 +79,7 @@ void CommunityElection::execute(Player& player, Game& game) {
             return;
         }
         game.bank().transfer(player, *other, 200);
-        game.logger().log(game.currentTurn(), player.username(),
+        TransactionLogger::log(game.currentTurn(), player.username(),
                           "DANA_UMUM", "Bayar M200 nyaleg ke " + other->username());
     }
 }
@@ -114,7 +114,7 @@ void LassoCard::use(Player& player, Game& game) {
         if (target) {
             int dest = player.position();
             target->setPosition(dest);
-            game.logger().log(game.currentTurn(), player.username(), "KARTU", "LassoCard: " + target->username() + " ditarik ke " + game.board().getTile(dest)->name());
+            TransactionLogger::log(game.currentTurn(), player.username(), "KARTU", "LassoCard: " + target->username() + " ditarik ke " + game.board().getTile(dest)->name());
             game.board().getTile(dest)->onLanded(*target, game);
         }
     }
@@ -147,7 +147,7 @@ void DemolitionCard::use(Player& player, Game& game) {
                 street->setBuildingLevel(lvl);
 
                 game.bank().pay(*prop->owner(), refund);
-                game.logger().log(game.currentTurn(), player.username(), "KARTU",
+                TransactionLogger::log(game.currentTurn(), player.username(), "KARTU",
                             "DemolitionCard: " + prop->name() +
                             " dikurangi 1 level (refund M" + to_string(refund) +
                             " ke " + prop->owner()->username() + ")");

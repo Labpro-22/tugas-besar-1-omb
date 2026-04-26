@@ -152,16 +152,11 @@ void Game::distributeSkillCard(Player& player) {
 }
 
 void Game::movePlayer(Player& player, int steps, bool collectGoSalary) {
-    int oldPos = player.position();
-    int newPos = board_->advance(oldPos, steps);
-    if (collectGoSalary && newPos < oldPos) awardGoSalary(player);
-    player.setPosition(newPos);
-    logger_.log(currentTurn_, player.username(), "GERAK", "Maju " + to_string(steps) + " petak -> " + board_->getTile(newPos)->name());
+    player.move(steps, collectGoSalary, *this);
 }
 
 void Game::teleportPlayer(Player& player, int targetIndex) {
-    player.setPosition(targetIndex);
-    logger_.log(currentTurn_, player.username(), "TELEPORT", "Pindah ke " + board_->getTile(targetIndex)->name());
+    player.teleport(targetIndex, *this);
 }
 
 void Game::sendToJail(Player& player) {
@@ -173,63 +168,15 @@ void Game::awardGoSalary(Player& player) {
 }
 
 void Game::cmdRollDice() {
-    Player& player = currentPlayer();
     lastJailByTripleDouble_ = false;
-    if (player.hasRolled() && !dice_.isDouble()) throw logic_error("Kamu sudah melempar dadu pada giliran ini.");
-    if (player.isJailed()) { handleJailTurn(player); return; }
-    auto [d1, d2] = dice_.roll();
-    if (cb_.onDiceRolled) cb_.onDiceRolled(d1, d2);
-    logger_.log(currentTurn_, player.username(), "DADU", "Lempar: " + to_string(d1) + "+" + to_string(d2) + "=" + to_string(d1+d2));
-    if (dice_.doubleCount() == 3) {
-        lastJailByTripleDouble_ = true;
-        sendToJail(player);
-        return;
-    }
-    player.setHasRolled(true);
-    movePlayer(player, d1 + d2);
-    processLanding(player, player.position(), d1 + d2);
+    currentPlayer().rollDice(*this);
+    if (dice_.doubleCount() == 3) lastJailByTripleDouble_ = true;
 }
 
 void Game::cmdSetDice(int d1, int d2) {
-    Player& player = currentPlayer();
     lastJailByTripleDouble_ = false;
-    if (player.hasRolled() && !dice_.isDouble()) throw logic_error("Kamu sudah melempar dadu pada giliran ini.");
-    if (player.isJailed()) {
-        if (player.jailTurns() >= 3) {
-            if (!player.canAfford(special_.jailFine)) { handleBankruptcy(player, nullptr, special_.jailFine); return; }
-            bank_.collect(player, special_.jailFine);
-            player.setStatus(PlayerStatus::ACTIVE);
-            player.resetJailTurns();
-            logger_.log(currentTurn_, player.username(), "KELUAR_PENJARA", "Bayar denda M" + to_string(special_.jailFine) + " (wajib)");
-        }
-        dice_.setRoll(d1, d2);
-        logger_.log(currentTurn_, player.username(), "DADU_PENJARA", "Atur manual: " + to_string(d1) + "+" + to_string(d2));
-        if (dice_.isDouble()) {
-            player.setStatus(PlayerStatus::ACTIVE);
-            player.resetJailTurns();
-            dice_.resetDoubleCount();
-            logger_.log(currentTurn_, player.username(), "KELUAR_PENJARA", "Dadu double!");
-            player.setHasRolled(true);
-            movePlayer(player, d1 + d2);
-            processLanding(player, player.position(), d1 + d2);
-        } else {
-            if (player.isJailed()) player.incrementJailTurns();
-            logger_.log(currentTurn_, player.username(), "PENJARA", "Gagal keluar (percobaan " + to_string(player.jailTurns()) + "/3)");
-            player.setHasRolled(true);
-        }
-        return;
-    }
-    dice_.setRoll(d1, d2);
-    if (cb_.onDiceRolled) cb_.onDiceRolled(d1, d2);
-    logger_.log(currentTurn_, player.username(), "DADU", "Atur manual: " + to_string(d1) + "+" + to_string(d2) + "=" + to_string(d1+d2));
-    if (dice_.doubleCount() == 3) {
-        lastJailByTripleDouble_ = true;
-        sendToJail(player);
-        return;
-    }
-    player.setHasRolled(true);
-    movePlayer(player, d1 + d2);
-    processLanding(player, player.position(), d1 + d2);
+    currentPlayer().setDice(d1, d2, *this);
+    if (dice_.doubleCount() == 3) lastJailByTripleDouble_ = true;
 }
 
 void Game::handleJailTurn(Player& player) {
@@ -254,7 +201,7 @@ void Game::handleRentPayment(Player& payer, Property& prop, int diceTotal) {
 void Game::handleTaxPPH(Player& player) {
     if (player.isShielded()) {
         player.setShielded(false);
-        logger_.log(currentTurn_, player.username(), "SHIELD", "ShieldCard mencegah pajak PPH");
+        TransactionLogger::log(currentTurn_, player.username(), "SHIELD", "ShieldCard mencegah pajak PPH");
         return;
     }
     if (cb_.onTaxPPH) { cb_.onTaxPPH(player); return; }
@@ -271,23 +218,23 @@ void Game::resolveTaxPPHChoice(Player& player, bool usePercentage) {
     }
     if (!player.canAfford(tax)) { handleBankruptcy(player, nullptr, tax); return; }
     bank_.collect(player, tax);
-    logger_.log(currentTurn_, player.username(), "PAJAK", detail);
+    TransactionLogger::log(currentTurn_, player.username(), "PAJAK", detail);
 }
 
 void Game::handleTaxPBM(Player& player) {
     if (player.isShielded()) {
         player.setShielded(false);
-        logger_.log(currentTurn_, player.username(), "SHIELD", "ShieldCard mencegah pajak PBM");
+        TransactionLogger::log(currentTurn_, player.username(), "SHIELD", "ShieldCard mencegah pajak PBM");
         return;
     }
     int tax = tax_.pbmFlat;
     if (!player.canAfford(tax)) { handleBankruptcy(player, nullptr, tax); return; }
     bank_.collect(player, tax);
-    logger_.log(currentTurn_, player.username(), "PAJAK", "PBM flat M" + to_string(tax));
+    TransactionLogger::log(currentTurn_, player.username(), "PAJAK", "PBM flat M" + to_string(tax));
 }
 
 void Game::handleFestival(Player& player) {
-    logger_.log(currentTurn_, player.username(), "FESTIVAL", "Mendarat di petak Festival");
+    TransactionLogger::log(currentTurn_, player.username(), "FESTIVAL", "Mendarat di petak Festival");
     if (cb_.onFestival) cb_.onFestival(player);
 }
 

@@ -34,7 +34,7 @@ void GoTile::onLanded(Player& player, Game& game) {
 }
 
 void JailTile::onLanded(Player& player, Game& game) {
-    game.logger().log(game.currentTurn(), player.username(),
+    TransactionLogger::log(game.currentTurn(), player.username(),
                       "MAMPIR", "Hanya mampir di Penjara");
 }
 
@@ -56,7 +56,7 @@ void FestivalTile::onLanded(Player& player, Game& game) {
 
 void ChanceTile::onLanded(Player& player, Game& game) {
     ChanceCard* card = game.chanceDeck().draw();
-    game.logger().log(game.currentTurn(), player.username(),
+    TransactionLogger::log(game.currentTurn(), player.username(),
                       "KESEMPATAN", card->description());
     card->execute(player, game);
     game.chanceDeck().discard(card);
@@ -64,7 +64,7 @@ void ChanceTile::onLanded(Player& player, Game& game) {
 
 void CommunityTile::onLanded(Player& player, Game& game) {
     CommunityCard* card = game.communityDeck().draw();
-    game.logger().log(game.currentTurn(), player.username(),
+    TransactionLogger::log(game.currentTurn(), player.username(),
                       "DANA_UMUM", card->description());
     card->execute(player, game);
     game.communityDeck().discard(card);

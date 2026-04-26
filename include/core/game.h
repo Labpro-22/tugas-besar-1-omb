@@ -80,8 +80,6 @@ public:
     const Board&   board()            const { return *board_; }
     Bank&          bank()                   { return bank_; }
     Dice&          dice()                   { return dice_; }
-    TransactionLogger&       logger()       { return logger_; }
-    const TransactionLogger& logger() const { return logger_; }
 
     CardDeck<ChanceCard>&    chanceDeck()         { return chanceDeck_; }
     CardDeck<CommunityCard>& communityDeck()       { return communityDeck_; }
@@ -149,7 +147,6 @@ private:
 
     Dice               dice_;
     Bank               bank_;
-    TransactionLogger  logger_;
 
     CardDeck<ChanceCard>    chanceDeck_;
     CardDeck<CommunityCard> communityDeck_;
