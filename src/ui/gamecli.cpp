@@ -538,9 +538,29 @@ void GameCLI::promptPPH() {
         if (player.isBankrupt()) cout << "Uang tidak cukup untuk bayar M" << flat << "! Memproses kebangkrutan...\n";
         else cout << "Pajak M" << flat << " dibayar. Saldo: M" << player.balance() << "\n";
     } else {
-        int wealth = player.netWorth();
+        int cash = player.balance();
+        int propValue = 0;
+        int buildValue = 0;
+        for (const auto* prop : player.properties()) {
+            propValue += prop->buyPrice();
+            if (prop->type() == PropertyType::STREET) {
+                const auto* s = static_cast<const Street*>(prop);
+                int lvl = s->buildingLevel();
+                if (lvl == Street::HOTEL)
+                    buildValue += s->hotelUpgradeCost();
+                else
+                    buildValue += lvl * s->houseUpgradeCost();
+            }
+        }
+        int wealth = player.netWorth(); // cash + propValue + buildValue
         int tax    = static_cast<int>(wealth * game_.taxConfig().pphPercent);
-        cout << "Total kekayaan:\n" << "  Uang tunai   : M" << player.balance() << "\n" << "  Total        : M" << wealth << "\n" << "  Pajak " << (int)(game_.taxConfig().pphPercent*100) << "%   : M" << tax << "\n";
+        cout << "Total kekayaan:\n"
+            << "  Uang tunai        : M" << cash      << "\n"
+            << "  Harga beli prop.  : M" << propValue << "\n"
+            << "  Harga bangunan    : M" << buildValue << "\n"
+            << "  Total             : M" << wealth    << "\n"
+            << "  Pajak " << (int)(game_.taxConfig().pphPercent*100)
+            << "%            : M" << tax << "\n";
         game_.resolveTaxPPHChoice(player, true);
         if (player.isBankrupt()) cout << "Uang tidak cukup! Memproses kebangkrutan...\n";
         else cout << "Pajak M" << tax << " dibayar. Saldo: M" << player.balance() << "\n";
