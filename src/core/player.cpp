@@ -1,3 +1,4 @@
+#include <iostream>
 #include "core/player.h"
 #include "core/game.h"
 #include "core/property.h"
@@ -43,6 +44,7 @@ void Player::goToJail(Game& game) {
     setStatus(PlayerStatus::JAILED);
     resetJailTurns();
     game.dice().resetDoubleCount();
+    std::cout << username_ << " masuk Penjara!\n";
     TransactionLogger::log(game.currentTurn(), username_, "PENJARA", "Masuk penjara");
 }
 
@@ -82,6 +84,8 @@ void Player::handleJailTurn(Game& game) {
 
 void Player::receiveGoSalary(Game& game) {
     game.bank().pay(*this, game.specialConfig().goSalary);
+    std::cout << "Kamu melewati/berhenti di GO! Menerima gaji M" << game.specialConfig().goSalary
+              << ". Saldo: M" << balance_ << "\n";
     TransactionLogger::log(game.currentTurn(), username_, "GAJI", "Melewati/berhenti di GO, menerima M" + std::to_string(game.specialConfig().goSalary));
 }
 
@@ -207,6 +211,9 @@ void Player::move(int steps, bool collectGoSalary, Game& game) {
     int newPos = game.board().advance(oldPos, steps);
     if (collectGoSalary && newPos < oldPos) receiveGoSalary(game);
     setPosition(newPos);
+    std::cout << "Memajukan bidak " << username_ << " sebanyak " << steps
+              << " petak...\nBidak mendarat di: " << game.board().getTile(newPos)->name()
+              << " (" << game.board().getTile(newPos)->code() << ").\n";
     TransactionLogger::log(game.currentTurn(), username_, "GERAK", "Maju " + std::to_string(steps) + " petak -> " + game.board().getTile(newPos)->name());
 }
 

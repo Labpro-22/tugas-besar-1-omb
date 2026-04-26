@@ -51,8 +51,8 @@ void GameCLI::registerCallbacks() {
     };
 
     cb.onAutoPurchase = [](Property& prop) {
-        cout << "\nKamu mendarat di " << prop.name() << " (" << prop.code() << ")!\n";
-        cout << "Properti ini " << prop.name() << " otomatis menjadi milikmu!\n";
+        cout << "Belum ada yang menginjaknya duluan, " << prop.name()
+             << " (" << prop.code() << ") kini menjadi milikmu!\n";
     };
 
     cb.onOfferPurchase = [this](Property& prop) -> bool {
@@ -219,7 +219,7 @@ void GameCLI::cmdLemparDadu() {
         cout << "Double! Giliran tambahan ke-" << d.doubleCount() << "\n";
         turnOver_ = true;  // keluar dari while loop, processTurn akan cek isDouble
     } else {
-        turnOver_ = false;  // ada command selesai untuk mengakhiri giliran
+        turnOver_ = true;
     }
 }
 
@@ -239,7 +239,7 @@ void GameCLI::cmdAturDadu(const string& args) {
         cout << "Double! Giliran tambahan ke-" << d.doubleCount() << "\n";
         turnOver_ = true;
     } else {
-        turnOver_ = false; // ada command selesai untuk mengakhiri giliran
+        turnOver_ = true;
     }
 }
 
@@ -431,36 +431,34 @@ void GameCLI::cmdGunakanKemampuan() {
 }
 
 bool GameCLI::promptBuyStreet(Property& prop) {
-    cout << "\nKamu mendarat di " << prop.name() << " (" << prop.code() << ")!\n";
     printer_.printDeed(prop.code());
     cout << "Saldo kamu: M" << game_.currentPlayer().balance() << "\n";
     if (!game_.currentPlayer().canAfford(prop.buyPrice())) {
-        cout << "Uang tidak cukup untuk membeli properti ini.\n";
+        cout << "Uang tidak cukup untuk membeli properti ini (M" << prop.buyPrice() << ").\n"
+             << "Properti ini akan masuk ke sistem lelang...\n";
         return false;
     }
-    return promptYN("Beli seharga M" + to_string(prop.buyPrice()) + "? (y/n)");
+    return promptYN("Apakah kamu ingin membeli properti ini seharga M" + to_string(prop.buyPrice()) + "? (y/n)");
 }
 
 void GameCLI::runAuction(Property& prop) {
     auto active = game_.activePlayers();
     Player* trigger = &game_.currentPlayer();
     vector<Player*> order = game_.board().auctionOrder(trigger, active);
-    int needed = game_.board().auctionPassesNeeded(order);
 
-    AuctionManager am(prop, order, needed, game_);
+    cout << "\nProperti " << prop.name() << " (" << prop.code() << ") akan dilelang!\n"
+         << "Urutan lelang dimulai dari pemain setelah " << trigger->username() << ".\n";
 
-    cout << "\nProperti " << prop.name() << " (" << prop.code() << ") akan dilelang!\n" << "Urutan lelang dimulai dari pemain setelah " << trigger->username() << ".\n";
+    int highBid  = 0;
+    Player* winner = nullptr;
+    int passCount  = 0;
+    int needed     = game_.board().auctionPassesNeeded(order);
+    size_t idx = 0;
 
-    while (!am.isFinished()) {
-        if (am.isFailed()) {
-            cout << "Minimal satu pemain harus melakukan bid. " << order[0]->username() << " wajib bid.\n";
-            am.resetForRetry();
-            continue;
-        }
-
-        Player* cur = am.currentPlayer();
+    while (true) {
+        Player* cur = order[idx % order.size()];
         cout << "Giliran: " << cur->username() << "\n";
-        if (am.winner()) cout << "Penawaran tertinggi: M" << am.highBid() << " (" << am.winner()->username() << ")\n";
+        if (winner) cout << "Penawaran tertinggi: M" << highBid << " (" << winner->username() << ")\n";
         else cout << "Penawaran tertinggi: belum ada\n";
 
         cout << "Aksi (PASS / BID <jumlah>): ";
@@ -470,7 +468,8 @@ void GameCLI::runAuction(Property& prop) {
         transform(action.begin(), action.end(), action.begin(), ::toupper);
 
         if (action == "PASS") {
-            am.processPass();
+            ++passCount;
+            TransactionLogger::log(game_.currentTurn(), cur->username(), "LELANG", "PASS");
         } else if (action == "BID") {
             string rawAmount;
             ss >> rawAmount;
@@ -492,24 +491,36 @@ void GameCLI::runAuction(Property& prop) {
                 cout << "Masukkan BID dengan angka valid, contoh: BID 100\n";
                 continue;
             }
-            if (amount <= am.highBid()) {cout << "Penawaran harus lebih dari M" << am.highBid() << "\n"; continue;}
+            if (amount <= highBid) {cout << "Penawaran harus lebih dari M" << highBid << "\n"; continue;}
             if (!cur->canAfford(amount)) {cout << "Uang tidak cukup (saldo: M" << cur->balance() << ")\n"; continue;}
-            
-            am.processBid(amount);
-            if (am.winner()) cout << "Penawaran tertinggi: M" << am.highBid() << " (" << am.winner()->username() << ")\n";
+
+            highBid   = amount;
+            winner    = cur;
+            passCount = 0;
+            TransactionLogger::log(game_.currentTurn(), cur->username(), "LELANG", "BID M" + to_string(amount));
+            cout << "Penawaran tertinggi: M" << highBid << " (" << winner->username() << ")\n";
         } else {
             cout << "Masukkan PASS atau BID <jumlah>\n";
             continue;
         }
-    }
 
-    if (am.winner()) {
-        cout << "\nLelang selesai!\n"
-             << "Pemenang: " << am.winner()->username()
-             << " | Harga akhir: M" << am.highBid() << "\n"
-             << "Properti " << prop.name() << " kini dimiliki "
-             << am.winner()->username() << ".\n";
-        am.finalizeAuction(game_);
+        if (passCount >= needed && winner != nullptr) {
+            cout << "\nLelang selesai!\n"
+                      << "Pemenang: " << winner->username()
+                      << " | Harga akhir: M" << highBid << "\n"
+                      << "Properti " << prop.name() << " kini dimiliki "
+                      << winner->username() << ".\n";
+            game_.finishAuction(*winner, prop, highBid);
+            return;
+        }
+        if (passCount >= (int)order.size() && winner == nullptr) {
+            cout << "Minimal satu pemain harus melakukan bid. " << order[0]->username() << " wajib bid.\n";
+            idx  = 0;
+            passCount = 0;
+            continue;
+        }
+
+        ++idx;
     }
 }
 void GameCLI::promptPPH() {

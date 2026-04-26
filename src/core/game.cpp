@@ -169,14 +169,44 @@ void Game::awardGoSalary(Player& player) {
 
 void Game::cmdRollDice() {
     lastJailByTripleDouble_ = false;
-    currentPlayer().rollDice(*this);
-    if (dice_.doubleCount() == 3) lastJailByTripleDouble_ = true;
+    Player& player = currentPlayer();
+    if (player.isJailed()) {
+        player.rollDice(*this);
+        return;
+    }
+    auto [d1, d2] = dice_.roll();
+    if (cb_.onDiceRolled) cb_.onDiceRolled(d1, d2);
+    TransactionLogger::log(currentTurn_, player.username(), "DADU",
+        "Lempar: " + to_string(d1) + "+" + to_string(d2) + "=" + to_string(d1+d2));
+    if (dice_.doubleCount() == 3) {
+        lastJailByTripleDouble_ = true;
+        player.goToJail(*this);
+        return;
+    }
+    player.setHasRolled(true);
+    movePlayer(player, d1 + d2);
+    processLanding(player, player.position(), d1 + d2);
 }
 
 void Game::cmdSetDice(int d1, int d2) {
     lastJailByTripleDouble_ = false;
-    currentPlayer().setDice(d1, d2, *this);
-    if (dice_.doubleCount() == 3) lastJailByTripleDouble_ = true;
+    Player& player = currentPlayer();
+    if (player.isJailed()) {
+        player.setDice(d1, d2, *this);
+        return;
+    }
+    dice_.setRoll(d1, d2);
+    if (cb_.onDiceRolled) cb_.onDiceRolled(d1, d2);
+    TransactionLogger::log(currentTurn_, player.username(), "DADU",
+        "Atur manual: " + to_string(d1) + "+" + to_string(d2) + "=" + to_string(d1+d2));
+    if (dice_.doubleCount() == 3) {
+        lastJailByTripleDouble_ = true;
+        player.goToJail(*this);
+        return;
+    }
+    player.setHasRolled(true);
+    movePlayer(player, d1 + d2);
+    processLanding(player, player.position(), d1 + d2);
 }
 
 void Game::handleJailTurn(Player& player) {
@@ -224,12 +254,21 @@ void Game::resolveTaxPPHChoice(Player& player, bool usePercentage) {
 void Game::handleTaxPBM(Player& player) {
     if (player.isShielded()) {
         player.setShielded(false);
+        std::cout << "[SHIELD ACTIVE]: ShieldCard melindungimu! Pajak PBM dibatalkan.\n";
         TransactionLogger::log(currentTurn_, player.username(), "SHIELD", "ShieldCard mencegah pajak PBM");
         return;
     }
     int tax = tax_.pbmFlat;
-    if (!player.canAfford(tax)) { handleBankruptcy(player, nullptr, tax); return; }
+    if (!player.canAfford(tax)) {
+        std::cout << "Kamu tidak mampu membayar pajak PBM M" << tax << "!\n"
+                  << "Uang kamu saat ini: M" << player.balance() << "\n";
+        handleBankruptcy(player, nullptr, tax);
+        return;
+    }
+    int before = player.balance();
     bank_.collect(player, tax);
+    std::cout << "Pajak sebesar M" << tax << " langsung dipotong.\n"
+              << "Uang kamu: M" << before << " -> M" << player.balance() << "\n";
     TransactionLogger::log(currentTurn_, player.username(), "PAJAK", "PBM flat M" + to_string(tax));
 }
 
@@ -282,7 +321,7 @@ void Game::cmdLiquidateSell(const string& code) {
     prop->performLiquidation(player, *this);
 }
 
-void Game::cmdPrintLog(int n) const { logger_.print(n); }
+void Game::cmdPrintLog(int n) const { TransactionLogger::print(n); }
 void Game::refreshPropertyCounts(Player* player) {
     if (!player) return;
     board_->recalcMonopoly(player);

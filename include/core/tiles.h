@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <string>
 #include "core/types.h"
 
@@ -78,7 +79,9 @@ public:
     FreeParkingTile(int index)
         : Tile(index, "BBP", "Bebas Parkir", TileType::FREE_PARKING) {}
 
-    void onLanded(Player& , Game&) override {}
+    void onLanded(Player& , Game&) override {
+        std::cout << "Kamu mendarat di Bebas Parkir. Tidak ada aksi — beristirahat sejenak.\n";
+    }
 };
 
 class GoToJailTile : public Tile {
