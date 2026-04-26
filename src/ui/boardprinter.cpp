@@ -420,16 +420,24 @@ void BoardPrinter::printProperties() const {
         for (auto* prop : props) {
             string status = prop->isMortgaged() ? " MORTGAGED [M]" : " OWNED";
             string bldg;
+            int buildingValue = 0;
             if (prop->type() == PropertyType::STREET) {
                 auto* s = static_cast<Street*>(prop);
                 int lvl = s->buildingLevel();
-                if (lvl == Street::HOTEL) bldg = " Hotel";
-                else if (lvl > 0) bldg = " " + to_string(lvl) + " rumah";
+                if (lvl == Street::HOTEL) {
+                    bldg = " Hotel";
+                    buildingValue = s->hotelUpgradeCost();
+                }
+                else if (lvl > 0) {
+                    bldg = " " + to_string(lvl) + " rumah";
+                    buildingValue = lvl * s->houseUpgradeCost();
+                }
             }
+            int propTotal = prop->buyPrice() + buildingValue;
             cout << "  - " << prop->name() << " (" << prop->code()
-                      << ")" << bldg << " M" << prop->buyPrice()
+                      << ")" << bldg << " M" << propTotal
                       << status << "\n";
-            total += prop->buyPrice();
+            total += propTotal;
         }
     }
     cout << "Total kekayaan properti: M" << total << "\n";

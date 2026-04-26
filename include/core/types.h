@@ -26,7 +26,7 @@ enum class TileType {
 
 // Card
 enum class SkillCardType {
-    MOVE, DISCOUNT, SHIELD, TELEPORT, LASSO, DEMOLITION
+    MOVE, DISCOUNT, SHIELD, FREE_JAIL, TELEPORT, LASSO, DEMOLITION
 };
 
 enum class ChanceEffect {

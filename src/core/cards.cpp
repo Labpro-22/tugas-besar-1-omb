@@ -110,14 +110,18 @@ void MoveCard::use(Player& player, Game& game) {
     game.board().getTile(player.position())->onLanded(player, game);
 }
 
-void DiscountCard::use(Player& player, Game& /*game*/) {
+void DiscountCard::use(Player& player, Game& ) {
     player.setDiscountPct(value_);
     std::cout << "DiscountCard aktif! Diskon " << value_ << "% untuk pembelian properti berikutnya.\n";
 }
 
-void ShieldCard::use(Player& player, Game& /*game*/) {
+void ShieldCard::use(Player& player, Game&) {
     player.setShielded(true);
     std::cout << "ShieldCard diaktifkan! Kamu kebal terhadap tagihan atau sanksi selama giliran ini.\n";
+}
+
+void FreeJailCard::use(Player&, Game& ) {
+    std::cout << "FreeJailCard hanya bisa digunakan saat berada di penjara.\n";
 }
 
 void TeleportCard::use(Player& player, Game& game) {
@@ -137,6 +141,9 @@ void LassoCard::use(Player& player, Game& game) {
         if (target) {
             int dest = player.position();
             target->setPosition(dest);
+            std::cout << "LassoCard! " << target->username()
+                      << " ditarik ke " << game.board().getTile(dest)->name()
+                      << " (" << game.board().getTile(dest)->code() << ").\n";
             TransactionLogger::log(game.currentTurn(), player.username(), "KARTU", "LassoCard: " + target->username() + " ditarik ke " + game.board().getTile(dest)->name());
             game.board().getTile(dest)->onLanded(*target, game);
         }
@@ -170,6 +177,10 @@ void DemolitionCard::use(Player& player, Game& game) {
                 street->setBuildingLevel(lvl);
 
                 game.bank().pay(*prop->owner(), refund);
+                std::cout << "DemolitionCard! " << prop->name()
+                          << " dikurangi 1 level bangunan. "
+                          << "Refund M" << refund
+                          << " diberikan ke " << prop->owner()->username() << ".\n";
                 TransactionLogger::log(game.currentTurn(), player.username(), "KARTU",
                             "DemolitionCard: " + prop->name() +
                             " dikurangi 1 level (refund M" + to_string(refund) +
