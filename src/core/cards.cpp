@@ -137,6 +137,9 @@ void LassoCard::use(Player& player, Game& game) {
         if (target) {
             int dest = player.position();
             target->setPosition(dest);
+            std::cout << "LassoCard! " << target->username()
+                      << " ditarik ke " << game.board().getTile(dest)->name()
+                      << " (" << game.board().getTile(dest)->code() << ").\n";
             TransactionLogger::log(game.currentTurn(), player.username(), "KARTU", "LassoCard: " + target->username() + " ditarik ke " + game.board().getTile(dest)->name());
             game.board().getTile(dest)->onLanded(*target, game);
         }
@@ -170,6 +173,10 @@ void DemolitionCard::use(Player& player, Game& game) {
                 street->setBuildingLevel(lvl);
 
                 game.bank().pay(*prop->owner(), refund);
+                std::cout << "DemolitionCard! " << prop->name()
+                          << " dikurangi 1 level bangunan. "
+                          << "Refund M" << refund
+                          << " diberikan ke " << prop->owner()->username() << ".\n";
                 TransactionLogger::log(game.currentTurn(), player.username(), "KARTU",
                             "DemolitionCard: " + prop->name() +
                             " dikurangi 1 level (refund M" + to_string(refund) +
